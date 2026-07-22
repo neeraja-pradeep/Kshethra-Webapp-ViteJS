@@ -245,7 +245,7 @@ export function OrdersScreen() {
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-sunken">
       <div className="flex-shrink-0 px-7 pb-4 pt-6">
-        <h1 className="m-0 text-3xl font-heading leading-tight tracking-title text-ink-strong">Pooja orders</h1>
+        <h1 className="m-0 text-3xl font-heading leading-tight tracking-title text-ink-strong">Pooja Orders</h1>
         <p className="m-0 mt-1.5 text-sm text-ink-muted">One row per order — payments, receipts, and refunds.</p>
       </div>
 

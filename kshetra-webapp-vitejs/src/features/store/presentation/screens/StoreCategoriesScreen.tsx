@@ -93,7 +93,7 @@ export function StoreCategoriesScreen() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-sunken">
+    <div className="relative flex h-full flex-col overflow-hidden bg-sunken">
       <div className="flex flex-shrink-0 items-start gap-4 px-7 pb-3.5 pt-6">
         <div className="min-w-0 flex-1">
           <h1 className="m-0 text-3xl font-heading leading-tight tracking-title text-ink-strong">Categories</h1>
