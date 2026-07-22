@@ -55,7 +55,7 @@ export function PoojaSearchPanel({
             Browse by god
           </button>
           <div className="flex-1" />
-          <span className="text-xs text-ink-subtle">{results.length} poojas</span>
+          <span className="text-xs text-ink-subtle">{resultCount} poojas</span>
         </div>
         {browseOpen && (
           <div className="mt-2.5 flex flex-wrap gap-1.5">

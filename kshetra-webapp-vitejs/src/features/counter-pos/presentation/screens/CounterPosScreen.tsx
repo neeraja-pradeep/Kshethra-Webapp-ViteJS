@@ -90,13 +90,14 @@ export function CounterPosScreen() {
   const activeGods = useMemo(() => GODS.filter((g) => g.status === 'Active').slice().sort((a, b) => a.sortOrder - b.sortOrder), [])
   const activePoojas = useMemo(() => POOJAS.filter((p) => p.status === 'Active'), [])
 
-  const results = useMemo(() => {
+  const matchedPoojas = useMemo(() => {
     let list = activePoojas
     if (browseGodId) list = list.filter((p) => p.godIds.includes(browseGodId))
     const q = search.trim().toLowerCase()
     if (q) list = list.filter((p) => p.name.toLowerCase().includes(q))
-    return list.slice().sort((a, b) => a.name.localeCompare(b.name)).slice(0, 80)
+    return list.slice().sort((a, b) => a.name.localeCompare(b.name))
   }, [activePoojas, browseGodId, search])
+  const results = matchedPoojas.slice(0, 80)
 
   const collectionSummary: CollectionSummary = useMemo(() => {
     const byMethod = PAYMENT_METHODS.map((method) => ({
