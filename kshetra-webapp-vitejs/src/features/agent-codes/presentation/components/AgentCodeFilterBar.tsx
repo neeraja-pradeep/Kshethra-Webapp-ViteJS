@@ -32,7 +32,7 @@ export interface AgentCodeFilterBarProps {
 /** Search box + status/validity filter selects above the KPI band. */
 export function AgentCodeFilterBar({ search, onSearchChange, status, onStatusChange, validity, onValidityChange }: AgentCodeFilterBarProps) {
   return (
-    <div className="flex flex-shrink-0 flex-wrap items-center gap-2.5 px-7 pb-3.5">
+    <div className="flex flex-shrink-0 flex-wrap items-center gap-x-3 gap-y-2.5 px-7 pb-3">
       <div className="w-[280px] max-w-full">
         <Input
           size="sm"
