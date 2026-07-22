@@ -60,12 +60,11 @@ export function MonthCalendar({ year, month, selectedDates, onToggleDate, onPrev
               disabled={c.isPast}
               onClick={() => onToggleDate(c.iso)}
               className={cn(
-                'h-8.5 items-center justify-center rounded-md border-none text-sm tabular-nums',
-                c.isPast && 'cursor-default text-ink-subtle opacity-40',
-                !c.isPast && !selected && 'cursor-pointer text-ink hover:bg-hover',
+                'inline-flex h-8.5 items-center justify-center rounded-md border-none text-sm tabular-nums',
+                c.isPast && 'cursor-default bg-transparent text-ink-subtle opacity-40',
+                !c.isPast && !selected && 'cursor-pointer bg-transparent text-ink hover:bg-hover',
                 !c.isPast && selected && 'cursor-pointer bg-primary font-semibold text-white',
                 !c.isPast && !selected && c.isToday && 'font-semibold ring-2 ring-inset ring-primary-border',
-                'inline-flex bg-transparent',
               )}
             >
               {c.day}

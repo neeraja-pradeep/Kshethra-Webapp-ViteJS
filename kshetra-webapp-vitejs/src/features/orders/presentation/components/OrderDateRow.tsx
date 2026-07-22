@@ -15,7 +15,6 @@ export interface OrderDateRowProps {
 /** One scheduled date within a pooja line item: checkbox, date/poojari, status, and its actions. */
 export function OrderDateRow({ occurrence, todayIso, selected, onToggleSelect, onAction }: OrderDateRowProps) {
   const status = deriveOccurrenceStatus(occurrence, todayIso)
-  const cancellable = !status.terminal
   const showActionRow = status.actions.length > 0 || !!status.infoText
 
   return (
@@ -26,7 +25,7 @@ export function OrderDateRow({ occurrence, todayIso, selected, onToggleSelect, o
       )}
     >
       <div className="flex items-start gap-2.75">
-        {cancellable ? (
+        {status.cancellable ? (
           <button
             type="button"
             onClick={onToggleSelect}
@@ -52,14 +51,14 @@ export function OrderDateRow({ occurrence, todayIso, selected, onToggleSelect, o
       </div>
 
       {showActionRow && (
-        <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2.5 pl-7.25">
+        <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2.5 pl-[29px]">
           {status.infoText ? (
-            <div className={cn('inline-flex min-w-45 flex-1 items-center gap-1.75 text-xs', occurrenceToneTextClass(status.tone))}>
-              {status.infoIcon && <Icon name={status.infoIcon.replace(/^ph(-fill)?\s+ph-/, '')} weight={status.infoIcon.includes('fill') ? 'fill' : 'regular'} size={15} className="shrink-0" />}
+            <div className={cn('inline-flex min-w-[180px] flex-1 items-center gap-1.75 text-xs', occurrenceToneTextClass(status.tone))}>
+              {status.infoIcon && <Icon name={status.infoIcon} weight={status.infoIconWeight} size={15} className="shrink-0" />}
               {status.infoText}
             </div>
           ) : (
-            <div className="min-w-5 flex-1" />
+            <div className="min-w-[20px] flex-1" />
           )}
           <div className="flex flex-wrap justify-end gap-2">
             {status.actions.map((kind) => {

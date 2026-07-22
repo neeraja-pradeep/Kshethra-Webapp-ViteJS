@@ -14,6 +14,7 @@ export interface OccurrenceStatusView {
   readonly danger: boolean
   readonly infoText: string
   readonly infoIcon: string | null
+  readonly infoIconWeight: 'regular' | 'fill'
   readonly actions: readonly OccurrenceActionKind[]
 }
 
@@ -39,7 +40,7 @@ export function deriveOccurrenceStatus(occ: OrderOccurrence, todayIso: string): 
   const base = (
     label: string,
     tone: OccurrenceTone,
-    extra: Partial<Pick<OccurrenceStatusView, 'actions' | 'infoText' | 'infoIcon' | 'terminal' | 'danger'>> = {},
+    extra: Partial<Pick<OccurrenceStatusView, 'actions' | 'infoText' | 'infoIcon' | 'infoIconWeight' | 'terminal' | 'danger'>> = {},
   ): OccurrenceStatusView => ({
     label,
     tone,
@@ -48,6 +49,7 @@ export function deriveOccurrenceStatus(occ: OrderOccurrence, todayIso: string): 
     danger: false,
     infoText: '',
     infoIcon: null,
+    infoIconWeight: 'regular',
     actions: [],
     ...extra,
   })
@@ -63,14 +65,15 @@ export function deriveOccurrenceStatus(occ: OrderOccurrence, todayIso: string): 
       return base('Reassignment expired', 'danger', {
         actions: ['reassign-again', 'cancel'],
         infoText: 'Reassignment expired — reassign to continue.',
-        infoIcon: 'ph-fill ph-warning-circle',
+        infoIcon: 'warning-circle',
+        infoIconWeight: 'fill',
         danger: true,
       })
     }
     return base('Reassigned', 'info', {
       actions: ['complete', 'reassign', 'cancel'],
       infoText: `Reassigned to ${occ.reassignment.priest} — complete within 24 hours.`,
-      infoIcon: 'ph ph-clock-countdown',
+      infoIcon: 'clock-countdown',
     })
   }
 
@@ -78,7 +81,8 @@ export function deriveOccurrenceStatus(occ: OrderOccurrence, todayIso: string): 
     return base('Awaiting completion', 'warning', {
       actions: ['complete', 'reassign', 'cancel'],
       infoText: 'Scheduled date has passed — mark complete or reassign.',
-      infoIcon: 'ph-fill ph-warning-circle',
+      infoIcon: 'warning-circle',
+      infoIconWeight: 'fill',
     })
   }
 

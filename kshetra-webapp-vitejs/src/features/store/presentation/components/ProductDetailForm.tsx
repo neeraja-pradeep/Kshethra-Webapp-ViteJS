@@ -88,6 +88,16 @@ export function ProductDetailForm({ product, mode, categories, hasOrders, onStar
     }
   }
 
+  // Escape closes the topmost layer: a nested modal handles itself; otherwise this screen backs out.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || confirm || adjustOpen) return
+      requestLeave()
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  })
+
   const categoryOptions = [
     { value: '', label: 'Select a category' },
     ...categories

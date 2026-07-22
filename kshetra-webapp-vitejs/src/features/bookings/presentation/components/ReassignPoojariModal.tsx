@@ -63,7 +63,7 @@ export function ReassignPoojariModal({ open, contextLabel, priests, currentPries
         })}
       </div>
       <div className="flex items-start gap-2 pb-1 text-xs leading-snug text-ink-muted">
-        <Icon name="clock-countdown" size={16} color="var(--color-info)" className="mt-0.25 shrink-0" />
+        <Icon name="clock-countdown" size={16} color="var(--color-info)" className="mt-px shrink-0" />
         The reassigned pooja must be completed within 24 hours. If not, it will need to be reassigned again.
       </div>
     </Modal>

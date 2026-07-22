@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { formatINR } from '@/shared/lib/format'
 import { cn } from '@/shared/lib/cn'
@@ -74,6 +74,17 @@ export function WalkInOrderScreen({ products, categories, templeName, onClose, o
     setReceiptOrder(null)
     onClose()
   }
+
+  // Escape closes the topmost layer: the receipt has no dismiss gesture, the payment modal
+  // handles itself, otherwise this screen backs out.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || receiptOrder || payOpen) return
+      onClose()
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  })
 
   return (
     <div className="absolute inset-0 z-drawer flex flex-col bg-sunken">

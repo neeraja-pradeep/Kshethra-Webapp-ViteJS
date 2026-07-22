@@ -391,6 +391,7 @@ export function CounterPosScreen() {
             browseGodId={browseGodId}
             onSelectGod={(id) => setBrowseGodId((prev) => (prev === id ? null : id))}
             results={results}
+            resultCount={matchedPoojas.length}
             godNameOf={godNameOf}
             onPick={openConfigForNew}
           />
@@ -414,7 +415,7 @@ export function CounterPosScreen() {
         godName={config?.godName ?? ''}
         base={config?.base ?? 0}
         namedPeople={namedPeople}
-        selectedPersonIds={config?.selectedIds ?? new Set()}
+        selectedPersonIds={config?.selectedIds ?? new Set<string>()}
         onTogglePerson={toggleConfigPerson}
         dates={config?.dates ?? []}
         onToggleDate={toggleConfigDate}

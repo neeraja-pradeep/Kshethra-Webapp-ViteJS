@@ -64,6 +64,16 @@ export function CategoryDetailForm({ category, mode, nextSortOrder, isNameTaken,
 
   const requestLeave = () => (dirty ? setConfirm({ kind: 'discard' }) : onCancel())
 
+  // Escape closes the topmost layer: a nested modal handles itself; otherwise this screen backs out.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || confirm) return
+      requestLeave()
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  })
+
   const attemptSave = () => {
     const name = form.name.trim()
     const errs: Record<string, string> = {}

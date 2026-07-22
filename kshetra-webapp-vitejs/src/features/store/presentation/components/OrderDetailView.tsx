@@ -181,6 +181,16 @@ export function OrderDetailView({
     })
   }
 
+  // Escape closes the topmost layer: the confirm modal handles itself; otherwise this screen backs out.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || confirm) return
+      onClose()
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  })
+
   return (
     <div className="absolute inset-0 z-drawer flex flex-col bg-sunken">
       <DetailTopBar

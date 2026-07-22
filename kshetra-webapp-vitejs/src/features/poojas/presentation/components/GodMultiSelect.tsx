@@ -63,7 +63,7 @@ export function GodMultiSelect({ godIds, gods, open, error, onToggleOpen, onClos
         {open && (
           <>
             <div onClick={onClose} className="fixed inset-0 z-menu" />
-            <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-menu max-h-66 overflow-y-auto rounded-lg bg-card p-1.5 shadow-lg">
+            <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-menu max-h-[264px] overflow-y-auto rounded-lg bg-card p-1.5 shadow-lg">
               {options.map((g) => {
                 const selected = godIds.includes(g.id)
                 return (
