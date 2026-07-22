@@ -1,8 +1,7 @@
+import { formatINR } from '@/shared/lib/format'
 import { Modal } from '@/shared/ui'
 
 import type { SpecificDate } from '../../domain/entities/pooja'
-import { formatINR } from '@/shared/lib/format'
-
 import { humanDate, todayISO } from '../lib/dateUtils'
 
 export interface PastSpecificDatesModalProps {
