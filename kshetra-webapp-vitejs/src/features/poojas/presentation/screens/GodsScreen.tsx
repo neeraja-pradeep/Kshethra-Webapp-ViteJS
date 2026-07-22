@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from '@/core/config/app'
 import { cn } from '@/shared/lib/cn'
@@ -8,6 +8,11 @@ import { Button, Icon, IconButton, Input, KpiTile, Select, Switch, Table, type T
 import type { God, GodStatus } from '../../domain/entities/god'
 import { GODS } from '../data/gods.mock'
 import { POOJAS } from '../data/poojas.mock'
+import { GodDetailDrawer } from '../components/GodDetailDrawer'
+import { PoojaToast } from '../components/PoojaToast'
+
+/** 'closed' | 'new' | an existing god's id — drives the detail drawer. */
+type DetailTarget = 'closed' | 'new' | string
 
 const STATUS_FILTER_OPTIONS = [
   { value: 'all', label: 'All statuses' },
@@ -38,6 +43,36 @@ export function GodsScreen() {
   const [filterStatus, setFilterStatus] = useState('all')
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
+
+  const [detailTarget, setDetailTarget] = useState<DetailTarget>('closed')
+  const [toast, setToast] = useState({ show: false, message: '' })
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current)
+    }
+  }, [])
+
+  function showToast(message: string) {
+    setToast({ show: true, message })
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast({ show: false, message: '' }), 2400)
+  }
+
+  const openGod = detailTarget !== 'closed' && detailTarget !== 'new' ? (gods.find((g) => g.id === detailTarget) ?? null) : null
+  const nextSortOrder = gods.reduce((max, g) => Math.max(max, g.sortOrder), 0) + 1
+
+  function handleSaveGod(saved: God) {
+    const wasNew = detailTarget === 'new'
+    setGods((prev) => (wasNew ? [...prev, saved] : prev.map((g) => (g.id === saved.id ? saved : g))))
+    showToast(wasNew ? 'God added' : 'God updated')
+  }
+
+  function handleDeleteGod(id: string) {
+    setGods((prev) => prev.filter((g) => g.id !== id))
+    showToast('God deleted')
+  }
 
   const filtersActive = !!search || filterStatus !== 'all'
 
@@ -131,13 +166,13 @@ export function GodsScreen() {
   )
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-sunken">
+    <div className="relative flex h-full flex-col overflow-hidden bg-sunken">
       <div className="flex shrink-0 items-start gap-4 px-7 pb-4 pt-6">
         <div className="min-w-0 flex-1">
           <h1 className="m-0 text-3xl font-heading leading-tight tracking-title text-ink-strong">Gods</h1>
           <p className="mt-1.5 text-sm text-ink-muted">Master data — every pooja references a god.</p>
         </div>
-        <Button theme="primary" iconLeft={<Icon name="plus" size={16} />}>
+        <Button theme="primary" iconLeft={<Icon name="plus" size={16} />} onClick={() => setDetailTarget('new')}>
           Add god
         </Button>
       </div>
@@ -168,7 +203,7 @@ export function GodsScreen() {
 
       <div className="mx-7 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-sm">
         <div className="min-h-0 flex-1 overflow-auto">
-          <Table<God> columns={columns} rows={pageRows} selectedId={null} empty={emptyMsg} />
+          <Table<God> columns={columns} rows={pageRows} onRowClick={(row) => setDetailTarget(row.id)} selectedId={openGod?.id ?? null} empty={emptyMsg} />
         </div>
       </div>
 
@@ -199,6 +234,17 @@ export function GodsScreen() {
           </IconButton>
         </div>
       </div>
+
+      <GodDetailDrawer
+        open={detailTarget !== 'closed'}
+        god={openGod}
+        poojaCount={openGod ? (POOJA_COUNT_BY_GOD[openGod.id] ?? 0) : 0}
+        nextSortOrder={nextSortOrder}
+        onClose={() => setDetailTarget('closed')}
+        onSave={handleSaveGod}
+        onDelete={handleDeleteGod}
+      />
+      <PoojaToast show={toast.show} message={toast.message} />
     </div>
   )
 }

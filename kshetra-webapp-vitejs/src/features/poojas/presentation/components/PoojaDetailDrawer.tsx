@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 
+import { cn } from '@/shared/lib/cn'
 import { formatINR } from '@/shared/lib/format'
-import { Badge, Input, Switch, Tabs } from '@/shared/ui'
+import { Badge, Icon, Input, Switch, Tabs, Tag } from '@/shared/ui'
 
 import type { God } from '../../domain/entities/god'
 import type { Pooja, PoojaSchedule, PoojaStatus } from '../../domain/entities/pooja'
@@ -208,12 +209,9 @@ export function PoojaDetailDrawer({ open, pooja, gods, existingPoojas, nextSortO
 
   const title = pooja ? (mode === 'view' ? form.name.trim() || 'Pooja details' : 'Edit pooja') : 'Add pooja'
   const saveLabel = pooja ? 'Save changes' : 'Add pooja'
-  const bookedCount = 0 // Bookings aren't part of this feature's mock data; treated as never-booked.
-  const deleteDisabled = !!pooja && bookedCount > 0
-  const deleteNote =
-    bookedCount > 0
-      ? `Can’t delete — booked ${bookedCount} time${bookedCount === 1 ? '' : 's'}. Deactivate instead to preserve history.`
-      : 'No bookings reference this pooja, so it can be permanently deleted.'
+  // Bookings aren't part of this feature's mock data, so the delete-guard always allows deletion.
+  const deleteDisabled = false
+  const deleteNote = 'No bookings reference this pooja, so it can be permanently deleted.'
 
   const previewDates = form.special ? resolveBookable(true, form.schedule, form.specificDates, form.unavailable, todayISO(), 6) : []
   const previewWarn = form.special && form.schedule.frequency === 'none' && form.specificDates.length === 0
@@ -249,14 +247,14 @@ export function PoojaDetailDrawer({ open, pooja, gods, existingPoojas, nextSortO
                     </div>
                     <div className="mt-1.75 flex flex-wrap gap-1.5">
                       {form.godIds.map((id) => (
-                        <span key={id} className="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-ink">
+                        <Tag key={id} size="sm">
                           {godNameById(id)}
-                        </span>
+                        </Tag>
                       ))}
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1.75 text-lg font-medium text-ink-strong">
-                    <span className={`h-2 w-2 rounded-full ${form.status === 'Active' ? 'bg-success' : 'bg-stroke-strong'}`} />
+                    <span className={cn('h-2 w-2 rounded-full', form.status === 'Active' ? 'bg-success' : 'bg-stroke-strong')} />
                     {form.status}
                   </div>
                 </div>
@@ -271,7 +269,7 @@ export function PoojaDetailDrawer({ open, pooja, gods, existingPoojas, nextSortO
                   </div>
                   <div>
                     <div className="text-2xs font-semibold uppercase tracking-overline text-ink-subtle">Poojari incentive</div>
-                    <div className="mt-1 text-lg font-medium tabular-nums text-ink-strong">{form.incentive ? formatINR(form.incentive) : '—'}</div>
+                    <div className="mt-1 text-lg font-medium tabular-nums text-ink-strong">{form.incentive !== '' ? formatINR(form.incentive) : '—'}</div>
                   </div>
                   <div>
                     <div className="text-2xs font-semibold uppercase tracking-overline text-ink-subtle">Display order</div>
@@ -315,13 +313,13 @@ export function PoojaDetailDrawer({ open, pooja, gods, existingPoojas, nextSortO
 
                 <div className="flex flex-col gap-1.75">
                   <div className="flex flex-wrap items-start gap-3">
-                    <div className="min-w-0 flex-1 basis-45">
+                    <div className="min-w-0 flex-1 basis-[180px]">
                       <Input label="Offline price (₹)" type="number" placeholder="0" value={form.offlinePrice} onChange={(e) => patch({ offlinePrice: e.target.value })} error={errors.offlinePrice} />
                     </div>
-                    <div className="min-w-0 flex-1 basis-45">
+                    <div className="min-w-0 flex-1 basis-[180px]">
                       <Input label="Online price (₹)" type="number" placeholder="0" value={form.onlinePrice} onChange={(e) => patch({ onlinePrice: e.target.value })} error={errors.onlinePrice} />
                     </div>
-                    <div className="min-w-0 flex-1 basis-45">
+                    <div className="min-w-0 flex-1 basis-[180px]">
                       <Input label="Poojari incentive (₹)" type="number" placeholder="0" value={form.incentive} onChange={(e) => patch({ incentive: e.target.value })} error={errors.incentive} />
                     </div>
                   </div>
@@ -331,7 +329,7 @@ export function PoojaDetailDrawer({ open, pooja, gods, existingPoojas, nextSortO
                 </div>
 
                 <div className="flex items-start gap-3 border-t border-stroke-subtle pt-4">
-                  <div className="w-33 shrink-0">
+                  <div className="w-[132px] shrink-0">
                     <Input label="Display order" type="number" placeholder="0" value={form.sortOrder} onChange={(e) => patch({ sortOrder: e.target.value })} />
                   </div>
                   <div className="min-w-0 flex-1 pt-6.5 text-2xs leading-snug text-ink-subtle">Optional — position in app lists. Lower numbers appear first.</div>
@@ -390,8 +388,8 @@ export function PoojaDetailDrawer({ open, pooja, gods, existingPoojas, nextSortO
                       variant="pill"
                       size="sm"
                       items={[
-                        { id: 'media', label: 'Media' },
-                        { id: 'schedule', label: 'Schedule' },
+                        { id: 'media', label: 'Media', icon: <Icon name="image" size={15} /> },
+                        { id: 'schedule', label: 'Schedule', icon: <Icon name="calendar-dots" size={15} /> },
                       ]}
                       value={formTab}
                       onChange={(id) => setFormTab(id as FormTab)}
@@ -490,9 +488,9 @@ export function PoojaDetailDrawer({ open, pooja, gods, existingPoojas, nextSortO
                         onOpenHistory={() => setSpecHistoryOpen(true)}
                       />
 
-                      <div className={`flex flex-col gap-2.25 rounded-lg border px-3.5 py-3 ${previewWarn ? 'border-warning-border bg-warning-surface' : 'border-stroke-subtle bg-sunken'}`}>
+                      <div className={cn('flex flex-col gap-2.25 rounded-lg border px-3.5 py-3', previewWarn ? 'border-warning-border bg-warning-surface' : 'border-stroke-subtle bg-sunken')}>
                         <div className="flex items-center gap-1.75 text-sm font-medium text-ink">
-                          <span className={previewWarn ? 'text-warning' : 'text-primary'}>●</span>
+                          <Icon name={previewWarn ? 'warning' : 'calendar-check'} weight={previewWarn ? 'fill' : 'regular'} size={15} className={previewWarn ? 'text-warning' : 'text-primary'} />
                           Next bookable dates
                         </div>
                         {previewDates.length > 0 && (

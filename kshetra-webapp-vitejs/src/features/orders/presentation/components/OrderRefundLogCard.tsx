@@ -18,8 +18,8 @@ export function OrderRefundLogCard({ entries }: OrderRefundLogCardProps) {
           <span className="w-[120px] shrink-0">User</span>
           <span className="w-[170px] shrink-0">Timestamp</span>
         </div>
-        {entries.map((entry, i) => (
-          <div key={i} className="flex gap-3 border-b border-stroke-subtle py-2.5 text-sm text-ink">
+        {entries.map((entry) => (
+          <div key={`${entry.timestamp}-${entry.amount}-${entry.reason}`} className="flex gap-3 border-b border-stroke-subtle py-2.5 text-sm text-ink">
             <span className="w-[110px] shrink-0 font-semibold tabular-nums text-ink-strong">{formatINR(entry.amount)}</span>
             <span className="flex-1 text-ink-muted">{entry.reason}</span>
             <span className="w-[120px] shrink-0">{entry.user}</span>

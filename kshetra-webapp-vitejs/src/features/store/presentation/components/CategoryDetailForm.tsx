@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { cn } from '@/shared/lib/cn'
 import { Button, Icon, Input, Switch } from '@/shared/ui'
@@ -49,12 +49,17 @@ export function CategoryDetailForm({ category, mode, nextSortOrder, isNameTaken,
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [confirm, setConfirm] = useState<ConfirmState | null>(null)
 
+  // nextSortOrder only seeds a brand-new blank form; it must not reactively
+  // re-seed (and wipe) an in-progress draft, so it is read through a ref.
+  const nextSortOrderRef = useRef(nextSortOrder)
+  nextSortOrderRef.current = nextSortOrder
+
   useEffect(() => {
-    const next = category ? fromCategory(category) : blankForm(nextSortOrder)
+    const next = category ? fromCategory(category) : blankForm(nextSortOrderRef.current)
     setForm(next)
     setSavedSig(signature(next))
     setErrors({})
-    // nextSortOrder only matters at creation time; category identity is what should re-seed the draft.
+    // Re-seed only when the category identity changes.
   }, [category])
 
   const isView = mode === 'view'

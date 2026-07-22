@@ -1,5 +1,6 @@
 import { useState } from 'react'
 
+import { cn } from '@/shared/lib/cn'
 import { formatINR } from '@/shared/lib/format'
 import { Button, Icon, Modal, Table, type TableColumn } from '@/shared/ui'
 
@@ -165,13 +166,10 @@ export function ImportPoojasModal({ open, gods, onClose, onImport }: ImportPooja
       {stage === 'preview' && (
         <div className="flex flex-col gap-3 py-0.5 pb-2">
           <div
-            className={
-              rows.length === 0
-                ? 'flex items-center gap-2.5 rounded-lg border border-stroke-subtle bg-sunken px-3.25 py-2.5'
-                : allOk
-                  ? 'flex items-center gap-2.5 rounded-lg border border-success-border bg-success-surface px-3.25 py-2.5'
-                  : 'flex items-center gap-2.5 rounded-lg border border-warning-border bg-warning-surface px-3.25 py-2.5'
-            }
+            className={cn(
+              'flex items-center gap-2.5 rounded-lg border px-3.25 py-2.5',
+              rows.length === 0 ? 'border-stroke-subtle bg-sunken' : allOk ? 'border-success-border bg-success-surface' : 'border-warning-border bg-warning-surface',
+            )}
           >
             <Icon name={allOk ? 'check-circle' : 'warning-circle'} weight="fill" size={18} className={allOk ? 'shrink-0 text-success' : 'shrink-0 text-warning'} />
             <span className="text-sm text-ink">{summary}</span>

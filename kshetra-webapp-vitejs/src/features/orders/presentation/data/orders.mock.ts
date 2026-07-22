@@ -146,6 +146,7 @@ function buildOrder(seed: SeedOrder): Order {
     bookedAt: `${formatOrderDate(addDaysISO(firstDate, -3))}, 8:15 am`,
     receiptRef: `RCP-${seed.ref.replace('KP-', '')}`,
     lineItems,
+    refundLog: [],
   }
 }
 

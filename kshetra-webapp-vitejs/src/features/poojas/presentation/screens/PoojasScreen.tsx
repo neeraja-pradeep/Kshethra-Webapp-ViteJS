@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from '@/core/config/app'
 import { cn } from '@/shared/lib/cn'
@@ -20,6 +20,12 @@ import {
 import type { Pooja, PoojaStatus } from '../../domain/entities/pooja'
 import { GODS } from '../data/gods.mock'
 import { POOJAS } from '../data/poojas.mock'
+import { ImportPoojasModal } from '../components/ImportPoojasModal'
+import { PoojaDetailDrawer } from '../components/PoojaDetailDrawer'
+import { PoojaToast } from '../components/PoojaToast'
+
+/** 'closed' | 'new' | an existing pooja's id — drives the detail drawer. */
+type DetailTarget = 'closed' | 'new' | string
 
 type SortKey = 'name' | 'offlinePrice' | 'onlinePrice' | 'incentive' | 'status'
 type SortDir = 'asc' | 'desc'
@@ -60,6 +66,43 @@ export function PoojasScreen() {
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [selected, setSelected] = useState<Record<string, boolean>>({})
+
+  const [detailTarget, setDetailTarget] = useState<DetailTarget>('closed')
+  const [importOpen, setImportOpen] = useState(false)
+  const [toast, setToast] = useState({ show: false, message: '' })
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current)
+    }
+  }, [])
+
+  function showToast(message: string) {
+    setToast({ show: true, message })
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast({ show: false, message: '' }), 2400)
+  }
+
+  const openPooja = detailTarget !== 'closed' && detailTarget !== 'new' ? (poojas.find((p) => p.id === detailTarget) ?? null) : null
+  const nextSortOrder = poojas.reduce((max, p) => Math.max(max, p.sortOrder), 0) + 1
+
+  function handleSavePooja(saved: Pooja) {
+    const wasNew = detailTarget === 'new'
+    setPoojas((prev) => (wasNew ? [saved, ...prev] : prev.map((p) => (p.id === saved.id ? saved : p))))
+    showToast(wasNew ? 'Pooja added' : 'Pooja updated')
+  }
+
+  function handleDeletePooja(id: string) {
+    setPoojas((prev) => prev.filter((p) => p.id !== id))
+    showToast('Pooja deleted')
+  }
+
+  function handleImportPoojas(records: Pooja[]) {
+    setPoojas((prev) => [...records, ...prev])
+    setImportOpen(false)
+    showToast(`${records.length} ${records.length === 1 ? 'pooja' : 'poojas'} imported`)
+  }
 
   const filtersActive =
     !!search || filterGod !== 'all' || filterStatus !== 'all' || filterSpecial !== 'all' || filterIncentive !== 'all'
@@ -259,13 +302,16 @@ export function PoojasScreen() {
   )
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-sunken">
+    <div className="relative flex h-full flex-col overflow-hidden bg-sunken">
       <div className="flex shrink-0 items-start gap-4 px-7 pb-4 pt-6">
         <div className="min-w-0 flex-1">
           <h1 className="m-0 text-3xl font-heading leading-tight tracking-title text-ink-strong">Poojas</h1>
           <p className="mt-1.5 text-sm text-ink-muted">All poojas, pricing, and special-pooja setup.</p>
         </div>
-        <Button theme="primary" iconLeft={<Icon name="plus" size={16} />}>
+        <Button theme="default" variant="outline" iconLeft={<Icon name="upload-simple" size={16} />} onClick={() => setImportOpen(true)}>
+          Import
+        </Button>
+        <Button theme="primary" iconLeft={<Icon name="plus" size={16} />} onClick={() => setDetailTarget('new')}>
           Add pooja
         </Button>
       </div>
@@ -321,7 +367,7 @@ export function PoojasScreen() {
 
       <div className="mx-7 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-sm">
         <div className="min-h-0 flex-1 overflow-auto">
-          <Table<Pooja> columns={columns} rows={pageRows} selectedId={null} empty={emptyMsg} />
+          <Table<Pooja> columns={columns} rows={pageRows} onRowClick={(row) => setDetailTarget(row.id)} selectedId={openPooja?.id ?? null} empty={emptyMsg} />
         </div>
       </div>
 
@@ -352,6 +398,19 @@ export function PoojasScreen() {
           </IconButton>
         </div>
       </div>
+
+      <PoojaDetailDrawer
+        open={detailTarget !== 'closed'}
+        pooja={openPooja}
+        gods={GODS}
+        existingPoojas={poojas}
+        nextSortOrder={nextSortOrder}
+        onClose={() => setDetailTarget('closed')}
+        onSave={handleSavePooja}
+        onDelete={handleDeletePooja}
+      />
+      <ImportPoojasModal open={importOpen} gods={GODS} onClose={() => setImportOpen(false)} onImport={handleImportPoojas} />
+      <PoojaToast show={toast.show} message={toast.message} />
     </div>
   )
 }

@@ -15,11 +15,10 @@ const FREQ_OPTIONS = [
   { value: 'yearly', label: 'Yearly' },
   { value: 'custom', label: 'Custom' },
 ]
+// The domain model's CustomUnit only covers weeks/months (see PoojaSchedule).
 const CUSTOM_UNIT_OPTIONS = [
-  { value: 'days', label: 'days' },
   { value: 'weeks', label: 'weeks' },
   { value: 'months', label: 'months' },
-  { value: 'years', label: 'years' },
 ]
 const ORDINAL_OPTIONS = ORDINALS
 const WEEKDAY_FULL_OPTIONS = WEEKDAYS_FULL.map((w, i) => ({ value: String(i), label: w }))

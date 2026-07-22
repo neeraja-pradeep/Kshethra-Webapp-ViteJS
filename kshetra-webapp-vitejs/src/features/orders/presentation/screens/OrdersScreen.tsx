@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { Spinner, type SelectOption } from '@/shared/ui'
+import { formatINR } from '@/shared/lib/format'
+
 import type { Order, OrderPaymentStatus } from '@/features/orders/domain/entities/order'
 import { ORDERS } from '@/features/orders/presentation/data/orders.mock'
 import { toOrderRow } from '@/features/orders/presentation/lib/orderRow'
@@ -29,7 +31,6 @@ import {
   occurrenceAmount,
   reassignOccurrence,
 } from '@/features/orders/presentation/lib/orderMutations'
-import { formatINR } from '@/shared/lib/format'
 import { OrdersFilterBar } from '@/features/orders/presentation/components/OrdersFilterBar'
 import { OrdersKpiBand } from '@/features/orders/presentation/components/OrdersKpiBand'
 import { OrdersTable } from '@/features/orders/presentation/components/OrdersTable'
@@ -256,6 +257,7 @@ export function OrdersScreen() {
         date={filters.date}
         from={filters.from}
         to={filters.to}
+        todayIso={ORDERS_TODAY_ISO}
         onDateModeChange={(mode) => updateFilters({ dateMode: mode })}
         onDateChange={(iso) => updateFilters({ date: iso })}
         onFromChange={(iso) => updateFilters({ from: iso })}

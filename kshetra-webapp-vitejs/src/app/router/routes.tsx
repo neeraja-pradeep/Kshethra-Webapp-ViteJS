@@ -1,11 +1,27 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 
 import { AdminLayout } from '@/app/layout/AdminLayout'
+import { AgentCodesScreen } from '@/features/agent-codes/presentation/screens/AgentCodesScreen'
+import { AuthScreen } from '@/features/auth/presentation/screens/AuthScreen'
+import { BookingsScreen } from '@/features/bookings/presentation/screens/BookingsScreen'
+import { CounterPosScreen } from '@/features/counter-pos/presentation/screens/CounterPosScreen'
+import { DashboardScreen } from '@/features/dashboard/presentation/screens/DashboardScreen'
+import { DevoteesScreen } from '@/features/devotees/presentation/screens/DevoteesScreen'
+import { MediaScreen } from '@/features/media/presentation/screens/MediaScreen'
+import { NotificationsScreen } from '@/features/notifications/presentation/screens/NotificationsScreen'
+import { OrdersScreen } from '@/features/orders/presentation/screens/OrdersScreen'
+import { GodsScreen } from '@/features/poojas/presentation/screens/GodsScreen'
+import { PoojasScreen } from '@/features/poojas/presentation/screens/PoojasScreen'
+import { ReportsScreen } from '@/features/reports/presentation/screens/ReportsScreen'
+import { StoreCategoriesScreen } from '@/features/store/presentation/screens/StoreCategoriesScreen'
+import { StoreOrdersScreen } from '@/features/store/presentation/screens/StoreOrdersScreen'
+import { StoreProductsScreen } from '@/features/store/presentation/screens/StoreProductsScreen'
+import { UsersRolesScreen } from '@/features/users-roles/presentation/screens/UsersRolesScreen'
 import { ComingSoon } from '@/shared/ui/ComingSoon'
 
 /**
- * Application routes. Each module mounts its screen here; modules not yet
- * implemented render a ComingSoon placeholder so navigation always resolves.
+ * Application routes. The AdminLayout shell hosts every in-console module;
+ * the auth screen is standalone (outside the shell).
  */
 export const router = createBrowserRouter([
   {
@@ -13,24 +29,24 @@ export const router = createBrowserRouter([
     element: <AdminLayout />,
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
-      { path: 'dashboard', element: <ComingSoon title="Dashboard" desc="Operational snapshot." /> },
-      { path: 'counter', element: <ComingSoon title="Counter Bookings" desc="Walk-in counter sales and receipts." /> },
-      { path: 'pooja-bookings', element: <ComingSoon title="Pooja Bookings" desc="Execution view — poojas to perform, by date." /> },
-      { path: 'pooja-orders', element: <ComingSoon title="Pooja Orders" desc="Transaction view — orders, payments, refunds." /> },
+      { path: 'dashboard', element: <DashboardScreen /> },
+      { path: 'counter', element: <CounterPosScreen /> },
+      { path: 'pooja-bookings', element: <BookingsScreen /> },
+      { path: 'pooja-orders', element: <OrdersScreen /> },
       { path: 'store', element: <Navigate to="/store/orders" replace /> },
-      { path: 'store/orders', element: <ComingSoon title="Store — Orders" desc="Store orders — fulfilment and refunds." /> },
-      { path: 'store/products', element: <ComingSoon title="Store — Products" desc="Products, pricing, and stock." /> },
-      { path: 'store/categories', element: <ComingSoon title="Store — Categories" desc="Product categories and their order." /> },
-      { path: 'poojas', element: <ComingSoon title="Poojas" desc="All poojas and their pricing." /> },
-      { path: 'gods', element: <ComingSoon title="Gods" desc="Gods referenced by poojas." /> },
-      { path: 'devotees', element: <ComingSoon title="Devotees" desc="App user accounts and booking history." /> },
-      { path: 'notifications', element: <ComingSoon title="Notifications" desc="Broadcast messages to app users." /> },
-      { path: 'media', element: <ComingSoon title="Media" desc="Audio tracks and cover art for the app." /> },
-      { path: 'agent-codes', element: <ComingSoon title="Agent code" desc="Booking-agent codes and attribution." /> },
-      { path: 'reports', element: <ComingSoon title="Reports" desc="Financial reconciliation and reports." /> },
-      { path: 'users-roles', element: <ComingSoon title="Users & Roles" desc="Employee and login registry." /> },
+      { path: 'store/orders', element: <StoreOrdersScreen /> },
+      { path: 'store/products', element: <StoreProductsScreen /> },
+      { path: 'store/categories', element: <StoreCategoriesScreen /> },
+      { path: 'poojas', element: <PoojasScreen /> },
+      { path: 'gods', element: <GodsScreen /> },
+      { path: 'devotees', element: <DevoteesScreen /> },
+      { path: 'notifications', element: <NotificationsScreen /> },
+      { path: 'media', element: <MediaScreen /> },
+      { path: 'agent-codes', element: <AgentCodesScreen /> },
+      { path: 'reports', element: <ReportsScreen /> },
+      { path: 'users-roles', element: <UsersRolesScreen /> },
     ],
   },
-  { path: '/login', element: <ComingSoon title="Sign in" desc="Kshetra Admin authentication." /> },
+  { path: '/login', element: <AuthScreen /> },
   { path: '*', element: <ComingSoon title="Page not found" desc="The page you are looking for does not exist." /> },
 ])

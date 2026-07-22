@@ -137,16 +137,6 @@ export function recurringOccurrences(schedule: PoojaSchedule | null, fromISO: st
       if (d >= start && d <= horizon) occ.push(formatISODate(d))
     }
     occ.sort()
-  } else if (freq === 'custom' && schedule.customUnit === 'days') {
-    const interval = Math.max(1, Number(schedule.customInterval) || 1)
-    const d = new Date(start)
-    let n = 0
-    while (d <= horizon && n < cap) {
-      occ.push(formatISODate(d))
-      d.setDate(d.getDate() + interval)
-      n++
-      if (endAfter && occ.length >= endAfter) break
-    }
   }
 
   if (endAfter) occ = occ.slice(0, endAfter)

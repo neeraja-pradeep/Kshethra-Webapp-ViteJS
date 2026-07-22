@@ -1,6 +1,7 @@
 import type { OrderChannel, OrderPaymentStatus, OrderRecordStatus } from '@/features/orders/domain/entities/order'
 import type { OrderRow } from '@/features/orders/presentation/lib/orderRow'
 import { digitsOnly } from '@/features/orders/presentation/lib/format'
+import { ORDERS_TODAY_ISO } from '@/features/orders/presentation/lib/today'
 
 export type OrderPayFilter = 'all' | OrderPaymentStatus
 export type OrderStatusFilter = 'all' | OrderRecordStatus
@@ -23,7 +24,7 @@ export interface OrderFilterState {
 export const DEFAULT_ORDER_FILTERS: OrderFilterState = {
   search: '',
   dateMode: 'all',
-  date: '2026-07-10',
+  date: ORDERS_TODAY_ISO,
   from: '2026-07-01',
   to: '2026-07-31',
   pay: 'all',

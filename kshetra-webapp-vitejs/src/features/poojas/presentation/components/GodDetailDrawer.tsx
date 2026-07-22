@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+import { cn } from '@/shared/lib/cn'
 import { Input, Switch } from '@/shared/ui'
 
 import type { God, GodStatus } from '../../domain/entities/god'
@@ -157,7 +158,7 @@ export function GodDetailDrawer({ open, god, poojaCount, nextSortOrder, onClose,
                   <div>
                     <div className="text-2xs font-semibold uppercase tracking-overline text-ink-subtle">Status</div>
                     <div className="mt-1 flex items-center gap-1.75 text-lg font-medium text-ink-strong">
-                      <span className={`h-2 w-2 rounded-full ${form.status === 'Active' ? 'bg-success' : 'bg-stroke-strong'}`} />
+                      <span className={cn('h-2 w-2 rounded-full', form.status === 'Active' ? 'bg-success' : 'bg-stroke-strong')} />
                       {form.status}
                     </div>
                   </div>
