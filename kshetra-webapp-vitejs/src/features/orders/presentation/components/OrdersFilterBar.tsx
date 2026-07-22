@@ -43,6 +43,7 @@ export interface OrdersFilterBarProps {
   date: string
   from: string
   to: string
+  todayIso: string
   onDateModeChange: (mode: OrderDateMode) => void
   onDateChange: (iso: string) => void
   onFromChange: (iso: string) => void
@@ -83,6 +84,7 @@ export function OrdersFilterBar(props: OrdersFilterBarProps) {
         date={props.date}
         from={props.from}
         to={props.to}
+        todayIso={props.todayIso}
         onModeChange={props.onDateModeChange}
         onDateChange={props.onDateChange}
         onFromChange={props.onFromChange}

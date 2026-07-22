@@ -9,6 +9,7 @@ export interface OrdersDateFilterProps {
   date: string
   from: string
   to: string
+  todayIso: string
   onModeChange: (mode: OrderDateMode) => void
   onDateChange: (iso: string) => void
   onFromChange: (iso: string) => void
@@ -28,13 +29,12 @@ function chipLabel(iso: string): string {
 /** Date-range filter: "All dates" chip that opens a Day/Range popover with quick presets. */
 export function OrdersDateFilter(props: OrdersDateFilterProps) {
   const [open, setOpen] = useState(false)
-  const todayIso = new Date().toISOString().slice(0, 10)
 
   const label =
     props.mode === 'all'
       ? 'All dates'
       : props.mode === 'single'
-        ? props.date === todayIso
+        ? props.date === props.todayIso
           ? `Today · ${chipLabel(props.date)}`
           : chipLabel(props.date)
         : `${chipLabel(props.from)} – ${chipLabel(props.to)}`
