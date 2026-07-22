@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { cn } from '@/shared/lib/cn'
 import { Icon } from '@/shared/ui'
@@ -76,6 +76,15 @@ export function DateRangeMenu({ mode, date, from, to, onModeChange, onPickSingle
     setPending(null)
     setOpen(false)
   }
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [open])
 
   const today = todayISO()
   const first = new Date(view.y, view.m, 1)

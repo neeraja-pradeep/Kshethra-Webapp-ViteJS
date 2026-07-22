@@ -41,6 +41,12 @@ export function orderBookingStatus(order: Order): OrderRecordStatus {
   return 'Pending'
 }
 
+/** True while every occurrence is still Pending — the only state that allows a whole-order cancel. */
+export function orderAllPending(order: Order): boolean {
+  const occs = allOccurrences(order)
+  return occs.length > 0 && occs.every((o) => o.recordStatus === 'Pending')
+}
+
 /** Every distinct person the order was booked for ("Booked for" chips). */
 export function orderFamilyMembers(order: Order): readonly string[] {
   const seen: string[] = []

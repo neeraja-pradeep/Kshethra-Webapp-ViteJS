@@ -55,7 +55,6 @@ export function CategoryDetailForm({ category, mode, nextSortOrder, isNameTaken,
     setSavedSig(signature(next))
     setErrors({})
     // nextSortOrder only matters at creation time; category identity is what should re-seed the draft.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category])
 
   const isView = mode === 'view'

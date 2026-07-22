@@ -1,3 +1,4 @@
+import { cn } from '@/shared/lib/cn'
 import { formatINR } from '@/shared/lib/format'
 import { Button, Icon } from '@/shared/ui'
 
@@ -52,7 +53,7 @@ export function Receipt({ open, pages, closeLabel, onClose, onPrint }: ReceiptPr
 
             <div className="py-3.5 text-center text-lg font-semibold text-primary">{pg.god}</div>
 
-            <div className={`grid ${COLS} gap-1.5 border-t border-stroke-strong border-b border-stroke py-1.5 text-2xs font-semibold uppercase tracking-wide text-ink-subtle`}>
+            <div className={cn('grid', COLS, 'gap-1.5 border-t border-stroke-strong border-b border-stroke py-1.5 text-2xs font-semibold uppercase tracking-wide text-ink-subtle')}>
               <span>Sl</span>
               <span>Name</span>
               <span>Nakshatra</span>
@@ -61,7 +62,7 @@ export function Receipt({ open, pages, closeLabel, onClose, onPrint }: ReceiptPr
               <span className="text-right">Amount</span>
             </div>
             {pg.rows.map((r) => (
-              <div key={r.sl} className={`grid ${COLS} items-baseline gap-1.5 border-b border-stroke-subtle py-1.75 text-xs text-ink`}>
+              <div key={r.sl} className={cn('grid', COLS, 'items-baseline gap-1.5 border-b border-stroke-subtle py-1.75 text-xs text-ink')}>
                 <span className="tabular-nums text-ink-subtle">{r.sl}</span>
                 <span className="font-medium text-ink-strong">{r.name}</span>
                 <span>{r.nakshatra}</span>

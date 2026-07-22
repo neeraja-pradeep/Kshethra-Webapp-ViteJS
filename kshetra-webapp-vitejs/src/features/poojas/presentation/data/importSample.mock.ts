@@ -12,3 +12,10 @@ export const SAMPLE_POOJAS_CSV = [
   'Kartikeya,Skanda Shashti Pooja,1500,1600,Active,2007,No',
   'Hanuman,Sundarakanda Parayanam,900,1000,Active,2008,No',
 ].join('\n')
+
+// Blank starter template offered via "Download template" — headers + two example rows.
+export const POOJAS_CSV_TEMPLATE = [
+  'God,Pooja Name,Offline Price,Online Price,Status,Sort Order,Special',
+  'Ganesha,Ganapathi Homa,2100,2300,Active,201,Yes',
+  'Shiva,Maha Rudrabhishekam,4800,5000,Active,202,No',
+].join('\n')
