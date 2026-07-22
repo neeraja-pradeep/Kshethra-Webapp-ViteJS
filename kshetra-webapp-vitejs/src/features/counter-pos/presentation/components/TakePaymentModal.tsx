@@ -2,9 +2,8 @@ import { formatINR } from '@/shared/lib/format'
 import { Button, Icon } from '@/shared/ui'
 
 import type { PaymentMethod } from '@/features/counter-pos/domain/entities/payment'
+import { PAYMENT_METHODS } from '@/features/counter-pos/presentation/data/payment-methods.mock'
 import { MethodTile } from './MethodTile'
-
-const PAY_METHODS: readonly PaymentMethod[] = ['Cash', 'Card', 'UPI', 'Net banking']
 
 export interface TakePaymentModalProps {
   open: boolean
@@ -39,7 +38,7 @@ export function TakePaymentModal({ open, total, method, onSelectMethod, onClose,
         </div>
 
         <div className="grid grid-cols-2 gap-2.5 px-5.5 pb-1.5 pt-3">
-          {PAY_METHODS.map((m) => (
+          {PAYMENT_METHODS.map((m) => (
             <MethodTile key={m} method={m} selected={m === method} onSelect={() => onSelectMethod(m)} />
           ))}
         </div>

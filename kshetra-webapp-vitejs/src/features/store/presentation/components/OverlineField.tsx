@@ -12,6 +12,29 @@ export function SectionLabel({ children, hint }: { children: ReactNode; hint?: R
   )
 }
 
+export interface ViewFieldProps {
+  label: ReactNode
+  value: ReactNode
+  required?: boolean
+  className?: string
+}
+
+/**
+ * Stacked read-only field for view-first detail forms: overline label above an
+ * 18px medium value — mirrors where a boxed Input's label would sit.
+ */
+export function ViewField({ label, value, required = false, className }: ViewFieldProps) {
+  return (
+    <div className={cn('flex flex-col gap-1.5', className)}>
+      <span className="text-2xs font-semibold uppercase tracking-overline text-ink-subtle">
+        {label}
+        {required && <span className="ml-0.5 text-danger">*</span>}
+      </span>
+      <span className="text-lg font-medium leading-snug text-ink-strong">{value}</span>
+    </div>
+  )
+}
+
 export interface OverlineFieldProps {
   label: ReactNode
   value: ReactNode

@@ -1,9 +1,8 @@
-import type { ReactNode } from 'react'
-
 import { Button, Icon, IconButton } from '@/shared/ui'
 import { formatINR } from '@/shared/lib/format'
 import type { Booking } from '@/features/bookings/domain/entities/booking'
 import { BookingStatusBadge } from '@/features/bookings/presentation/components/BookingStatusBadge'
+import { DetailRow } from '@/features/bookings/presentation/components/DetailRow'
 import { formatFullDate } from '@/features/bookings/presentation/lib/date'
 
 export interface BookingDetailDrawerProps {
@@ -11,15 +10,6 @@ export interface BookingDetailDrawerProps {
   onClose: () => void
   onMarkComplete: () => void
   onReassign: () => void
-}
-
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-4">
-      <span className="text-2xs font-semibold uppercase tracking-overline text-ink-subtle">{label}</span>
-      <span className="text-right text-base font-medium text-ink-strong">{children}</span>
-    </div>
-  )
 }
 
 /** Right-side slide-over — read-first view of a single person's booking. */
@@ -46,22 +36,22 @@ export function BookingDetailDrawer({ booking, onClose, onMarkComplete, onReassi
         <div className="mx-auto flex max-w-[880px] flex-col gap-4 p-6 pb-14">
           <div className="flex flex-col gap-3.25 rounded-2xl bg-card p-5 shadow-sm">
             <span className="text-2xs font-semibold uppercase tracking-overline text-ink-subtle">Booking</span>
-            <Row label="Pooja">{booking.poojaName}</Row>
-            <Row label="God">{booking.godName}</Row>
-            <Row label="Pooja date">
+            <DetailRow label="Pooja">{booking.poojaName}</DetailRow>
+            <DetailRow label="God">{booking.godName}</DetailRow>
+            <DetailRow label="Pooja date">
               <span className="tabular-nums">{formatFullDate(booking.poojaDate)}</span>
-            </Row>
-            <Row label="Person">{booking.person}</Row>
-            <Row label="Nakshatra">{booking.nakshatra || '—'}</Row>
-            <Row label="Poojari">
+            </DetailRow>
+            <DetailRow label="Person">{booking.person}</DetailRow>
+            <DetailRow label="Nakshatra">{booking.nakshatra || '—'}</DetailRow>
+            <DetailRow label="Poojari">
               <span className="inline-flex items-center gap-1.5">
                 <Icon name="user-circle" size={15} color="var(--text-subtle)" />
                 {booking.poojari}
               </span>
-            </Row>
-            <Row label="Amount">
+            </DetailRow>
+            <DetailRow label="Amount">
               <span className="tabular-nums">{formatINR(booking.amount)}</span>
-            </Row>
+            </DetailRow>
           </div>
 
           {actionable && (
@@ -90,12 +80,12 @@ export function BookingDetailDrawer({ booking, onClose, onMarkComplete, onReassi
                 <Icon name="arrow-up-right" size={13} />
               </span>
             </div>
-            <Row label="Receipt">
+            <DetailRow label="Receipt">
               <span className="tabular-nums">{booking.receiptRef}</span>
-            </Row>
-            <Row label="Order total">
+            </DetailRow>
+            <DetailRow label="Order total">
               <span className="tabular-nums">{formatINR(booking.orderTotal)}</span>
-            </Row>
+            </DetailRow>
             <div className="flex items-center justify-between gap-4">
               <span className="text-2xs font-semibold uppercase tracking-overline text-ink-subtle">Payment</span>
               <BookingStatusBadge label={booking.paymentStatus} tone={booking.paymentTone} />

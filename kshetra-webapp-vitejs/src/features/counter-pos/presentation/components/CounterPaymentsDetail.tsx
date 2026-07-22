@@ -3,9 +3,8 @@ import { Button, Icon } from '@/shared/ui'
 
 import type { AgentBooking } from '@/features/counter-pos/domain/entities/agent-booking'
 import type { PaymentMethod } from '@/features/counter-pos/domain/entities/payment'
+import { PAYMENT_METHODS } from '@/features/counter-pos/presentation/data/payment-methods.mock'
 import { MethodTile } from './MethodTile'
-
-const PAY_METHODS: readonly PaymentMethod[] = ['Cash', 'Card', 'UPI', 'Net banking']
 
 export interface CounterPaymentsDetailProps {
   booking: AgentBooking
@@ -51,7 +50,7 @@ export function CounterPaymentsDetail({ booking, method, onSelectMethod, onViewB
       <div className="flex flex-col gap-2.25">
         <span className="text-sm font-medium text-ink">Payment method</span>
         <div className="grid grid-cols-2 gap-2.5">
-          {PAY_METHODS.map((m) => (
+          {PAYMENT_METHODS.map((m) => (
             <MethodTile key={m} method={m} selected={m === method} onSelect={() => onSelectMethod(m)} />
           ))}
         </div>

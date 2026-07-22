@@ -224,7 +224,7 @@ export function BookingsScreen() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-sunken">
-      <div className="flex-shrink-0 px-7 pb-4 pt-6">
+      <div className="flex-shrink-0 px-7 pb-3.5 pt-6">
         <h1 className="m-0 text-3xl font-heading leading-tight tracking-title text-ink-strong">Pooja Bookings</h1>
         <p className="m-0 mt-1.5 text-sm text-ink-muted">Execution view — one booking per person, per pooja date.</p>
       </div>

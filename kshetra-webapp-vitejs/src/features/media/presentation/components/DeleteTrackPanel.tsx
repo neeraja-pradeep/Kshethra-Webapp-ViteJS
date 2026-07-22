@@ -12,7 +12,7 @@ export function DeleteTrackPanel({ editable, onDelete }: DeleteTrackPanelProps) 
       <div className="min-w-50 flex-1">
         <div className="text-sm font-semibold text-ink-strong">Delete track</div>
         {editable && (
-          <div className="mt-0.5 text-2xs text-ink-subtle">Tracks aren&rsquo;t tied to orders — safe to remove. Or set Inactive to hide it.</div>
+          <div className="mt-0.5 text-2xs text-ink-subtle">Tracks aren&apos;t tied to orders — safe to remove. Or set Inactive to hide it.</div>
         )}
       </div>
       {editable && (

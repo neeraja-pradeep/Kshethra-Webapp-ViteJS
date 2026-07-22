@@ -14,6 +14,8 @@ export interface PoojaSearchPanelProps {
   browseGodId: string | null
   onSelectGod: (id: string) => void
   results: readonly Pooja[]
+  /** Total matches before the display list is capped — may exceed `results.length`. */
+  resultCount: number
   godNameOf: (godId: string) => string
   onPick: (pooja: Pooja) => void
 }
@@ -28,6 +30,7 @@ export function PoojaSearchPanel({
   browseGodId,
   onSelectGod,
   results,
+  resultCount,
   godNameOf,
   onPick,
 }: PoojaSearchPanelProps) {
