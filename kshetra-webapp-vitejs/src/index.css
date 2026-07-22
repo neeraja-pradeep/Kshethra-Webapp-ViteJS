@@ -63,3 +63,35 @@
     background: transparent;
   }
 }
+
+/* Print isolation — when a printable region is present (e.g. a counter
+   receipt), print ONLY that region and drop the app shell + browser chrome.
+   Mark the printable node with `ks-print-region`; hide print-only-noise with
+   `ks-print-hide`. */
+@media print {
+  @page {
+    margin: 12mm;
+  }
+  html,
+  body {
+    height: auto !important;
+    background: #fff !important;
+  }
+  /* Hide everything, then reveal just the print region and its descendants. */
+  body:has(.ks-print-region) * {
+    visibility: hidden !important;
+  }
+  body:has(.ks-print-region) .ks-print-region,
+  body:has(.ks-print-region) .ks-print-region * {
+    visibility: visible !important;
+  }
+  body:has(.ks-print-region) .ks-print-region {
+    position: absolute !important;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  .ks-print-hide {
+    display: none !important;
+  }
+}

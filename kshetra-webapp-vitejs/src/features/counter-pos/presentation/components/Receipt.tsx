@@ -20,11 +20,11 @@ export function Receipt({ open, pages, closeLabel, onClose, onPrint }: ReceiptPr
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center overflow-auto bg-overlay p-6 [backdrop-filter:blur(2px)] print:static print:bg-transparent print:p-0 print:[backdrop-filter:none]">
-      <div className="mx-auto flex flex-col items-center gap-4">
+      <div className="ks-print-region mx-auto flex flex-col items-center gap-4">
         {pages.map((pg) => (
           <div
             key={pg.god}
-            className="flex min-h-[652px] w-[462px] flex-col rounded-xl bg-card px-8.5 py-8 shadow-xl print:shadow-none"
+            className="flex min-h-[652px] w-[462px] flex-col rounded-xl bg-card px-8.5 py-8 shadow-xl print:m-0 print:break-inside-avoid print:shadow-none"
           >
             <div className="pb-3 text-center">
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-xl font-black leading-none text-primary-contrast">

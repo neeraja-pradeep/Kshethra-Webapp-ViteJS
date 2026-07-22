@@ -372,8 +372,8 @@ export function CounterPosScreen() {
 
       <KpiBand summary={collectionSummary} />
 
-      <div className="flex min-h-0 flex-1 flex-wrap gap-4 overflow-y-auto px-7 pb-5.5">
-        <div className="flex min-h-0 min-w-0 flex-[1_1_300px] flex-col gap-3.5">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-7 pb-5.5 md:flex-row md:flex-nowrap md:overflow-hidden">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3.5 md:overflow-y-auto md:pb-1">
           <PeoplePanel
             people={people}
             nakshatraOptions={NAKSHATRAS.map((n) => ({ value: n, label: n }))}

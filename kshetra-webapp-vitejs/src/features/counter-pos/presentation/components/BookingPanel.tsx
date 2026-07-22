@@ -25,7 +25,7 @@ export function BookingPanel({ lines, orderTotal, orderPoojaCount, paymentBlocke
   const hasLines = lines.length > 0
 
   return (
-    <div className="flex min-w-[300px] max-w-full flex-[0_1_360px] flex-col overflow-hidden rounded-2xl bg-card shadow-sm">
+    <div className="flex w-full flex-col overflow-hidden rounded-2xl bg-card shadow-sm md:h-full md:min-h-0 md:w-[360px] md:flex-shrink-0">
       <div className="flex flex-shrink-0 items-center gap-2 border-b border-stroke px-4.5 py-3.75">
         <Icon name="receipt" size={18} className="text-primary" />
         <span className="text-base font-semibold text-ink-strong">Current booking</span>

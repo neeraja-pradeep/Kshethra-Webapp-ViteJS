@@ -13,8 +13,8 @@ export interface CounterPaymentsReceiptProps {
 /** Compact thermal-style receipt printed once a counter payment has been recorded. */
 export function CounterPaymentsReceipt({ booking, templeName, onDone, onPrint }: CounterPaymentsReceiptProps) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto px-5.5 py-4.5">
-      <div className="flex w-[330px] flex-col rounded-xl bg-card px-6 py-5.5 shadow-xs">
+    <div className="ks-print-region flex min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto px-5.5 py-4.5">
+      <div className="flex w-[330px] flex-col rounded-xl bg-card px-6 py-5.5 shadow-xs print:shadow-none">
         <div className="border-b border-dashed border-stroke-strong pb-3 text-center">
           <span className="inline-flex h-9.5 w-9.5 items-center justify-center rounded-lg bg-primary text-2xl font-black leading-none text-primary-contrast">
             क
@@ -50,7 +50,7 @@ export function CounterPaymentsReceipt({ booking, templeName, onDone, onPrint }:
         <div className="mt-3 text-center text-xs italic text-ink-subtle">Thank you · {'शुभमस्तु'}</div>
       </div>
 
-      <div className="flex gap-2.5">
+      <div className="ks-print-hide flex gap-2.5">
         <Button theme="default" variant="outline" onClick={onDone}>
           Done
         </Button>
