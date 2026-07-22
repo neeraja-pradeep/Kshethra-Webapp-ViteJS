@@ -1,0 +1,32 @@
+import type { Nakshatra } from '@/features/counter-pos/domain/entities/nakshatra'
+
+/** The 27 nakshatras — options for every person's select. */
+export const NAKSHATRAS: readonly Nakshatra[] = [
+  'Ashwini',
+  'Bharani',
+  'Krittika',
+  'Rohini',
+  'Mrigashira',
+  'Ardra',
+  'Punarvasu',
+  'Pushya',
+  'Ashlesha',
+  'Magha',
+  'Purva Phalguni',
+  'Uttara Phalguni',
+  'Hasta',
+  'Chitra',
+  'Swati',
+  'Vishakha',
+  'Anuradha',
+  'Jyeshtha',
+  'Mula',
+  'Purva Ashadha',
+  'Uttara Ashadha',
+  'Shravana',
+  'Dhanishta',
+  'Shatabhisha',
+  'Purva Bhadrapada',
+  'Uttara Bhadrapada',
+  'Revati',
+]

@@ -1,0 +1,88 @@
+import type { Notification } from '@/features/notifications/domain/entities/notification'
+
+/** Total registered app users — used to estimate "All users" broadcast reach. */
+export const TOTAL_APP_USERS = 4820
+
+/** Seed notifications/broadcasts, copied verbatim from the design prototype. */
+export const NOTIFICATIONS: Notification[] = [
+  {
+    id: 'NT-1',
+    title: 'Ashadha Ekadashi special darshan',
+    description: 'Special darshan from 5 am with Vishnu Sahasranama parayanam. Book pooja slots in the app.',
+    target: 'all',
+    naks: [],
+    banner: true,
+    status: 'Sent',
+    time: '2026-06-28 06:00',
+  },
+  {
+    id: 'NT-2',
+    title: 'Rohini nakshatra — Krishna abhishekam',
+    description: 'Krishna abhishekam on your birth star this week. Family members with Rohini nakshatra can book a sankalpa.',
+    target: 'nakshatra',
+    naks: ['Rohini'],
+    banner: true,
+    status: 'Sent',
+    time: '2026-06-24 07:30',
+  },
+  {
+    id: 'NT-3',
+    title: 'Guru Purnima pooja bookings open',
+    description: 'Guru Purnima poojas are open for booking — limited slots for the maha homa.',
+    target: 'all',
+    naks: [],
+    banner: false,
+    status: 'Sent',
+    time: '2026-06-20 09:00',
+  },
+  {
+    id: 'NT-4',
+    title: 'Monthly Sankashti reminder',
+    description: 'Sankashti Chaturthi is on 15 Jul. Book Ganapathi poojas before Tuesday evening.',
+    target: 'all',
+    naks: [],
+    banner: false,
+    status: 'Scheduled',
+    time: '2026-07-13 06:30',
+  },
+  {
+    id: 'NT-5',
+    title: 'Ayyappa mandala season begins',
+    description: 'Mandala season pooja calendar is live. Ayyappa poojas can be booked for the full 41-day period.',
+    target: 'nakshatra',
+    naks: ['Pushya', 'Uttara Phalguni'],
+    banner: true,
+    status: 'Scheduled',
+    time: '2026-07-16 06:00',
+  },
+  {
+    id: 'NT-6',
+    title: 'Varalakshmi Vratam kit available',
+    description: 'Varalakshmi Vratam kits with pooja samagri are now available in the temple store.',
+    target: 'all',
+    naks: [],
+    banner: true,
+    status: 'Draft',
+    time: '',
+  },
+  {
+    id: 'NT-7',
+    title: 'Special Navagraha shanti homa',
+    description: 'Navagraha shanti homa for doshas of Ashlesha, Jyeshtha, and Revati stars — dates announced soon.',
+    target: 'nakshatra',
+    naks: ['Ashlesha', 'Jyeshtha', 'Revati'],
+    banner: false,
+    status: 'Draft',
+    time: '',
+  },
+  {
+    id: 'NT-8',
+    title: 'Temple timings updated for monsoon',
+    description: 'Evening darshan now closes at 8:30 pm during the monsoon months.',
+    target: 'all',
+    naks: [],
+    banner: false,
+    status: 'Sent',
+    time: '2026-06-15 18:00',
+  },
+]

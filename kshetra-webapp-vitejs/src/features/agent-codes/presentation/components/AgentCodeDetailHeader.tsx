@@ -1,0 +1,52 @@
+import { Button, Icon } from '@/shared/ui'
+
+export interface AgentCodeDetailHeaderProps {
+  title: string
+  isView: boolean
+  isEditing: boolean
+  onBack: () => void
+  onStartEdit: () => void
+  onSave: () => void
+}
+
+/** Sticky top bar of the create/edit/view overlay: back, breadcrumb, mode actions. */
+export function AgentCodeDetailHeader({ title, isView, isEditing, onBack, onStartEdit, onSave }: AgentCodeDetailHeaderProps) {
+  return (
+    <div className="flex h-14 flex-shrink-0 items-center gap-2.5 border-b border-stroke bg-card px-6">
+      <button
+        type="button"
+        aria-label="Back"
+        onClick={onBack}
+        className="inline-flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-md border-none bg-transparent text-ink-muted hover:bg-hover hover:text-ink-strong"
+      >
+        <Icon name="arrow-left" size={18} />
+      </button>
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-overline text-ink-subtle">Agent code</span>
+        <span className="text-stroke-strong">/</span>
+        <span className="whitespace-nowrap text-base font-semibold text-ink-strong">{title}</span>
+      </div>
+      {isView && (
+        <span className="inline-flex h-6.5 items-center gap-1.5 whitespace-nowrap rounded-full bg-sunken px-2.75 text-xs font-medium text-ink-muted shadow-[inset_0_0_0_1px_var(--border-subtle)]">
+          <Icon name="eye" size={13} />
+          View only
+        </span>
+      )}
+      {isView && (
+        <Button theme="primary" iconLeft={<Icon name="pencil-simple" size={15} />} onClick={onStartEdit}>
+          Edit
+        </Button>
+      )}
+      {isEditing && (
+        <>
+          <Button theme="default" variant="outline" onClick={onBack}>
+            Cancel
+          </Button>
+          <Button theme="primary" iconLeft={<Icon name="check" size={16} />} onClick={onSave}>
+            Save code
+          </Button>
+        </>
+      )}
+    </div>
+  )
+}

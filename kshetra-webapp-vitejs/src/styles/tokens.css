@@ -1,0 +1,598 @@
+/* Kshetra Admin — design tokens (generated from the design-system bundle).
+   Order: Figma primitives → brand semantics → typography → spacing/elevation
+   → v3 refinement overrides. Do not hand-edit values; they mirror the design. */
+
+/* Generated from Figma Variables. First mode = :root default.
+   FLOAT tokens are unitless — multiply by 1px in calc() where a length is needed. */
+
+:root {
+  --black-overlay-100: rgba(0,0,0,0.18);
+  --black-overlay-200: rgba(0,0,0,0.27);
+  --black-overlay-300: rgba(0,0,0,0.36);
+  --black-overlay-400: rgba(0,0,0,0.45);
+  --black-overlay-500: rgba(0,0,0,0.54);
+  --black-overlay-50: rgba(0,0,0,0.09);
+  --black-overlay-600: rgba(0,0,0,0.63);
+  --black-overlay-700: rgba(0,0,0,0.72);
+  --black-overlay-800: rgba(0,0,0,0.81);
+  --black-overlay-900: rgba(0,0,0,0.9);
+  --dark-amber-100: rgb(248,209,110);
+  --dark-amber-200: rgb(240,186,49);
+  --dark-amber-300: rgb(231,153,19);
+  --dark-amber-400: rgb(197,116,17);
+  --dark-amber-500: rgb(168,88,9);
+  --dark-amber-50: rgb(249,232,165);
+  --dark-amber-600: rgb(130,65,8);
+  --dark-amber-700: rgb(96,48,7);
+  --dark-amber-800: rgb(75,38,6);
+  --dark-amber-900: rgb(55,30,6);
+  --dark-blue-100: rgb(173,210,245);
+  --dark-blue-200: rgb(140,193,236);
+  --dark-blue-300: rgb(90,174,242);
+  --dark-blue-400: rgb(50,148,227);
+  --dark-blue-500: rgb(21,128,216);
+  --dark-blue-50: rgb(201,224,245);
+  --dark-blue-600: rgb(21,89,153);
+  --dark-blue-700: rgb(6,61,113);
+  --dark-blue-800: rgb(5,43,83);
+  --dark-blue-900-80: rgb(14,32,55);
+  --dark-blue-900: rgb(14,32,55);
+  --dark-cyan-100: rgb(160,230,247);
+  --dark-cyan-200: rgb(104,211,243);
+  --dark-cyan-300: rgb(60,184,220);
+  --dark-cyan-400: rgb(43,141,171);
+  --dark-cyan-500: rgb(35,114,139);
+  --dark-cyan-50: rgb(208,240,250);
+  --dark-cyan-600: rgb(21,82,102);
+  --dark-cyan-700: rgb(14,59,73);
+  --dark-cyan-800: rgb(13,43,54);
+  --dark-cyan-900: rgb(11,37,45);
+  --dark-gray-100-2: rgb(197,197,197);
+  --dark-gray-100-3: rgb(197,197,197);
+  --dark-gray-100: rgb(212,212,212);
+  --dark-gray-200-2: rgb(160,160,160);
+  --dark-gray-200-3: rgb(160,160,160);
+  --dark-gray-200: rgb(175,175,175);
+  --dark-gray-250: rgb(153,153,153);
+  --dark-gray-300-2: rgb(130,130,130);
+  --dark-gray-300-3: rgb(130,130,130);
+  --dark-gray-300: rgb(128,128,128);
+  --dark-gray-400-2: rgb(98,98,98);
+  --dark-gray-400-3: rgb(98,98,98);
+  --dark-gray-400: rgb(113,113,113);
+  --dark-gray-50-2: rgb(222,221,221);
+  --dark-gray-50-3: rgb(222,221,221);
+  --dark-gray-500-2: rgb(73,73,73);
+  --dark-gray-500-3: rgb(73,73,73);
+  --dark-gray-500: rgb(66,66,66);
+  --dark-gray-50: rgb(248,248,248);
+  --dark-gray-600-2: rgb(55,55,55);
+  --dark-gray-600: rgb(52,52,52);
+  --dark-gray-650: rgb(43,43,43);
+  --dark-gray-700-2: rgb(34,34,34);
+  --dark-gray-700: rgb(35,35,35);
+  --dark-gray-800-2: rgb(23,23,23);
+  --dark-gray-800-3: rgb(23,23,23);
+  --dark-gray-800: rgb(28,28,28);
+  --dark-gray-900: rgb(15,15,15);
+  --dark-gray-old-900: rgb(17,17,17);
+  --dark-green-100: rgb(155,230,193);
+  --dark-green-200: rgb(120,215,169);
+  --dark-green-300: rgb(88,192,142);
+  --dark-green-400: rgb(53,174,116);
+  --dark-green-500: rgb(31,157,96);
+  --dark-green-50: rgb(200,243,222);
+  --dark-green-600: rgb(24,132,80);
+  --dark-green-700: rgb(11,97,57);
+  --dark-green-800: rgb(10,63,39);
+  --dark-green-900: rgb(11,46,28);
+  --dark-orange-100: rgb(255,168,115);
+  --dark-orange-200: rgb(250,138,64);
+  --dark-orange-300: rgb(222,109,27);
+  --dark-orange-400: rgb(196,90,14);
+  --dark-orange-500: rgb(152,69,9);
+  --dark-orange-50: rgb(255,205,173);
+  --dark-orange-600: rgb(130,57,6);
+  --dark-orange-700: rgb(104,49,8);
+  --dark-orange-800: rgb(83,39,7);
+  --dark-orange-900-80: rgba(64,31,7,0.8);
+  --dark-orange-900: rgb(64,31,7);
+  --dark-pink-100: rgb(246,154,209);
+  --dark-pink-200: rgb(237,119,190);
+  --dark-pink-300: rgb(227,89,171);
+  --dark-pink-400: rgb(203,67,148);
+  --dark-pink-500: rgb(172,55,125);
+  --dark-pink-50: rgb(246,197,222);
+  --dark-pink-600: rgb(130,42,95);
+  --dark-pink-700: rgb(104,32,75);
+  --dark-pink-800: rgb(96,29,70);
+  --dark-pink-900-80: rgba(71,20,50,0.8);
+  --dark-pink-900: rgb(71,20,50);
+  --dark-purple-100: rgb(217,175,245);
+  --dark-purple-200: rgb(201,147,239);
+  --dark-purple-300: rgb(177,104,232);
+  --dark-purple-400: rgb(152,75,216);
+  --dark-purple-500: rgb(122,45,185);
+  --dark-purple-50: rgb(229,198,251);
+  --dark-purple-600: rgb(89,31,137);
+  --dark-purple-700: rgb(71,23,110);
+  --dark-purple-800: rgb(57,20,87);
+  --dark-purple-900: rgb(46,17,70);
+  --dark-red-100: rgb(255,149,149);
+  --dark-red-200: rgb(252,116,116);
+  --dark-red-300: rgb(235,77,82);
+  --dark-red-400: rgb(228,56,56);
+  --dark-red-500: rgb(200,40,40);
+  --dark-red-50: rgb(255,193,193);
+  --dark-red-600: rgb(156,32,32);
+  --dark-red-700: rgb(98,27,24);
+  --dark-red-800-90: rgba(76,24,24,0.9);
+  --dark-red-800: rgb(76,24,24);
+  --dark-red-900-80: rgba(54,21,21,0.8);
+  --dark-red-900: rgb(54,21,21);
+  --dark-teal-100: rgb(110,231,219);
+  --dark-teal-200: rgb(82,218,204);
+  --dark-teal-300: rgb(61,198,184);
+  --dark-teal-400: rgb(33,156,143);
+  --dark-teal-500: rgb(27,113,105);
+  --dark-teal-50: rgb(147,242,232);
+  --dark-teal-600: rgb(19,86,79);
+  --dark-teal-700: rgb(12,66,60);
+  --dark-teal-800: rgb(11,58,53);
+  --dark-teal-900: rgb(10,45,41);
+  --dark-violet-100: rgb(196,175,238);
+  --dark-violet-200: rgb(179,152,239);
+  --dark-violet-300: rgb(157,124,234);
+  --dark-violet-400: rgb(136,103,232);
+  --dark-violet-500: rgb(92,63,194);
+  --dark-violet-50: rgb(218,203,247);
+  --dark-violet-600: rgb(70,57,166);
+  --dark-violet-700: rgb(51,41,120);
+  --dark-violet-800: rgb(40,30,93);
+  --dark-violet-900: rgb(34,28,66);
+  --dark-yellow-100: rgb(248,215,106);
+  --dark-yellow-200: rgb(236,192,46);
+  --dark-yellow-300: rgb(218,174,21);
+  --dark-yellow-400: rgb(198,156,18);
+  --dark-yellow-500: rgb(156,122,10);
+  --dark-yellow-50: rgb(255,232,157);
+  --dark-yellow-600: rgb(112,86,6);
+  --dark-yellow-700: rgb(91,70,5);
+  --dark-yellow-800: rgb(63,48,4);
+  --dark-yellow-900: rgb(50,38,4);
+  --light-amber-100: rgb(255,247,211);
+  --light-amber-200: rgb(254,237,169);
+  --light-amber-300: rgb(251,219,115);
+  --light-amber-400: rgb(251,204,85);
+  --light-amber-500: rgb(231,153,19);
+  --light-amber-50: rgb(253,250,237);
+  --light-amber-600: rgb(219,119,6);
+  --light-amber-700: rgb(179,83,9);
+  --light-amber-800: rgb(145,64,13);
+  --light-amber-900: rgb(118,56,19);
+  --light-blue-100: rgb(230,244,255);
+  --light-blue-200: rgb(200,230,255);
+  --light-blue-300: rgb(167,215,253);
+  --light-blue-400: rgb(115,187,246);
+  --light-blue-500: rgb(2,137,247);
+  --light-blue-50: rgb(242,249,255);
+  --light-blue-600: rgb(0,123,224);
+  --light-blue-700: rgb(0,112,204);
+  --light-blue-800: rgb(0,92,163);
+  --light-blue-900: rgb(0,72,128);
+  --light-cyan-100: rgb(221,247,255);
+  --light-cyan-200: rgb(179,232,247);
+  --light-cyan-300: rgb(153,226,248);
+  --light-cyan-400: rgb(114,213,243);
+  --light-cyan-500: rgb(59,189,229);
+  --light-cyan-50: rgb(245,251,252);
+  --light-cyan-600: rgb(50,164,199);
+  --light-cyan-700: rgb(38,122,148);
+  --light-cyan-800: rgb(18,92,115);
+  --light-cyan-900: rgb(22,71,89);
+  --light-gray-100: rgb(243,243,243);
+  --light-gray-200: rgb(237,237,237);
+  --light-gray-300: rgb(226,226,226);
+  --light-gray-400: rgb(199,199,199);
+  --light-gray-500: rgb(153,153,153);
+  --light-gray-50: rgb(248,248,248);
+  --light-gray-600: rgb(124,124,124);
+  --light-gray-700: rgb(82,82,82);
+  --light-gray-800: rgb(56,56,56);
+  --light-gray-900: rgb(23,23,23);
+  --light-green-100: rgb(228,250,235);
+  --light-green-200: rgb(212,246,222);
+  --light-green-300: rgb(185,238,204);
+  --light-green-400: rgb(155,228,182);
+  --light-green-500: rgb(89,186,139);
+  --light-green-50: rgb(242,253,244);
+  --light-green-600: rgb(48,166,109);
+  --light-green-700: rgb(39,143,94);
+  --light-green-800: rgb(22,121,76);
+  --light-green-900: rgb(23,59,44);
+  --light-orange-100: rgb(255,239,228);
+  --light-orange-200: rgb(255,222,197);
+  --light-orange-300: rgb(255,203,163);
+  --light-orange-400: rgb(244,176,127);
+  --light-orange-500: rgb(232,108,19);
+  --light-orange-50: rgb(255,249,245);
+  --light-orange-600: rgb(212,90,8);
+  --light-orange-700: rgb(189,62,12);
+  --light-orange-800: rgb(158,53,19);
+  --light-orange-900: rgb(107,39,17);
+  --light-pink-100: rgb(253,232,245);
+  --light-pink-200: rgb(255,213,240);
+  --light-pink-300: rgb(249,185,224);
+  --light-pink-400: rgb(246,167,214);
+  --light-pink-500: rgb(227,74,166);
+  --light-pink-50: rgb(255,247,252);
+  --light-pink-600: rgb(207,58,150);
+  --light-pink-700: rgb(156,38,113);
+  --light-pink-800: rgb(128,20,88);
+  --light-pink-900: rgb(87,15,62);
+  --light-purple-100: rgb(246,233,255);
+  --light-purple-200: rgb(236,211,255);
+  --light-purple-300: rgb(226,185,252);
+  --light-purple-400: rgb(207,161,242);
+  --light-purple-500: rgb(156,69,227);
+  --light-purple-50: rgb(253,250,255);
+  --light-purple-600: rgb(134,66,194);
+  --light-purple-700: rgb(110,57,157);
+  --light-purple-800: rgb(92,47,131);
+  --light-purple-900: rgb(64,24,99);
+  --light-red-100: rgb(255,231,231);
+  --light-red-200: rgb(255,216,216);
+  --light-red-300: rgb(253,194,194);
+  --light-red-400: rgb(247,149,150);
+  --light-red-500: rgb(224,54,54);
+  --light-red-50: rgb(255,247,247);
+  --light-red-600: rgb(204,41,41);
+  --light-red-700: rgb(181,42,42);
+  --light-red-800: rgb(148,31,31);
+  --light-red-900: rgb(107,21,21);
+  --light-teal-100: rgb(230,247,244);
+  --light-teal-200: rgb(186,232,225);
+  --light-teal-300: rgb(151,222,212);
+  --light-teal-400: rgb(115,209,196);
+  --light-teal-500: rgb(54,186,173);
+  --light-teal-50: rgb(240,253,250);
+  --light-teal-600: rgb(11,158,146);
+  --light-teal-700: rgb(15,115,107);
+  --light-teal-800: rgb(17,92,87);
+  --light-teal-900: rgb(17,69,65);
+  --light-violet-100: rgb(240,235,255);
+  --light-violet-200: rgb(219,213,255);
+  --light-violet-300: rgb(201,186,251);
+  --light-violet-400: rgb(179,161,245);
+  --light-violet-500: rgb(104,70,227);
+  --light-violet-50: rgb(251,250,255);
+  --light-violet-600: rgb(95,70,199);
+  --light-violet-700: rgb(79,61,161);
+  --light-violet-800: rgb(57,41,128);
+  --light-violet-900: rgb(37,25,89);
+  --light-yellow-100: rgb(255,247,211);
+  --light-yellow-200: rgb(247,233,168);
+  --light-yellow-300: rgb(245,225,113);
+  --light-yellow-400: rgb(242,209,75);
+  --light-yellow-500: rgb(237,186,19);
+  --light-yellow-50: rgb(255,252,239);
+  --light-yellow-600: rgb(209,147,13);
+  --light-yellow-700: rgb(171,110,5);
+  --light-yellow-800: rgb(140,86,0);
+  --light-yellow-900: rgb(115,63,18);
+  --neutrals-black: rgb(0,0,0);
+  --neutrals-white: rgb(255,255,255);
+  --outline-amber-1: var(--light-amber-200);
+  --outline-amber-2: var(--light-amber-400);
+  --outline-blue-1: var(--light-blue-300);
+  --outline-blue-2: var(--light-blue-500);
+  --outline-gray-1: var(--light-gray-200);
+  --outline-gray-2: var(--light-gray-300);
+  --outline-gray-3: var(--light-gray-400);
+  --outline-gray-4-2: var(--light-gray-600);
+  --outline-gray-4: var(--light-gray-500);
+  --outline-gray-5: var(--light-gray-800);
+  --outline-gray-modals: var(--light-gray-200);
+  --outline-green-1: var(--light-green-300);
+  --outline-green-2: var(--light-green-400);
+  --outline-orange-1: var(--light-orange-400);
+  --outline-red-1: var(--light-red-200);
+  --outline-red-2: var(--light-red-300);
+  --outline-red-3: var(--light-red-400);
+  --outline-red-4: var(--light-red-500);
+  --outline-white: var(--neutrals-white);
+  --radius-0: 0;
+  --radius-10: 100;
+  --radius-1: 4;
+  --radius-2: 5;
+  --radius-3: 6;
+  --radius-4: 8;
+  --radius-5: 10;
+  --radius-6: 12;
+  --radius-7: 16;
+  --radius-8: 20;
+  --radius-9: 22;
+  --spacing-0: 0;
+  --spacing-10: 10;
+  --spacing-11: 11;
+  --spacing-12: 12;
+  --spacing-13: 14;
+  --spacing-14: 16;
+  --spacing-15: 20;
+  --spacing-16: 26;
+  --spacing-1: 1;
+  --spacing-2: 2;
+  --spacing-3: 3;
+  --spacing-4: 4;
+  --spacing-5: 5;
+  --spacing-6: 6;
+  --spacing-7: 7;
+  --spacing-8: 8;
+  --spacing-9: 9;
+  --surface-amber-1: var(--light-amber-100);
+  --surface-amber-2: var(--light-amber-600);
+  --surface-blue-1: var(--light-blue-100);
+  --surface-blue-2: var(--light-blue-500);
+  --surface-cards: var(--neutrals-white);
+  --surface-cyan-1: var(--light-cyan-100);
+  --surface-gray-1: var(--light-gray-50);
+  --surface-gray-2: var(--light-gray-100);
+  --surface-gray-3: var(--light-gray-200);
+  --surface-gray-4: var(--light-gray-300);
+  --surface-gray-5: var(--light-gray-700);
+  --surface-gray-6: var(--light-gray-800);
+  --surface-gray-7: var(--light-gray-900);
+  --surface-green-1: var(--light-green-50);
+  --surface-green-2: var(--light-green-100);
+  --surface-green-3-2: var(--light-green-200);
+  --surface-green-3: var(--light-green-600);
+  --surface-menu-bar: var(--light-gray-50);
+  --surface-modal: var(--neutrals-white);
+  --surface-orange-1: var(--light-orange-100);
+  --surface-pink-1: var(--light-pink-100);
+  --surface-red-1: var(--light-red-100);
+  --surface-red-2: var(--light-red-200);
+  --surface-red-3: var(--light-red-300);
+  --surface-red-4: var(--light-red-600);
+  --surface-red-5: var(--light-red-700);
+  --surface-red-6: var(--light-red-800);
+  --surface-selected: var(--neutrals-white);
+  --surface-violet-1: var(--light-violet-100);
+  --surface-white: var(--neutrals-white);
+  --text-blue-3: var(--light-blue-600);
+  --text-icons-amber-1: var(--light-amber-100);
+  --text-icons-amber-2: var(--light-amber-500);
+  --text-icons-amber-3: var(--light-amber-600);
+  --text-icons-blue-1: var(--light-blue-100);
+  --text-icons-blue-2: var(--light-blue-600);
+  --text-icons-blue-3: var(--light-blue-800);
+  --text-icons-cyan-1: var(--light-cyan-500);
+  --text-icons-gray-1: var(--light-gray-200);
+  --text-icons-gray-2: var(--light-gray-300);
+  --text-icons-gray-3: var(--light-gray-400);
+  --text-icons-gray-4: var(--light-gray-500);
+  --text-icons-gray-5: var(--light-gray-600);
+  --text-icons-gray-6: var(--light-gray-700);
+  --text-icons-gray-7: var(--light-gray-700);
+  --text-icons-gray-8: var(--light-gray-800);
+  --text-icons-gray-9: var(--light-gray-900);
+  --text-icons-green-1: var(--light-green-50);
+  --text-icons-green-2: var(--light-green-600);
+  --text-icons-green-3: var(--light-green-800);
+  --text-icons-pink-1: var(--light-pink-500);
+  --text-icons-red-1: var(--light-red-50);
+  --text-icons-red-2: var(--light-red-400);
+  --text-icons-red-3: var(--light-red-500);
+  --text-icons-red-4: var(--light-red-600);
+  --text-icons-violet-1: var(--light-violet-500);
+  --text-icons-white: var(--neutrals-white);
+  --white-overlay-100: rgba(255,255,255,0.18);
+  --white-overlay-200: rgba(255,255,255,0.27);
+  --white-overlay-300: rgba(255,255,255,0.36);
+  --white-overlay-400: rgba(255,255,255,0.45);
+  --white-overlay-500: rgba(255,255,255,0.54);
+  --white-overlay-50: rgba(255,255,255,0.1);
+  --white-overlay-600: rgba(255,255,255,0.63);
+  --white-overlay-700: rgba(255,255,255,0.72);
+  --white-overlay-800: rgba(255,255,255,0.81);
+  --white-overlay-900: rgba(255,255,255,0.9);
+}
+
+:root {
+  /* ── Primary (maroon) ramp ───────────────────────────────── */
+  --ks-primary-50:  #FCF1F2;   /* warm tint — subtle button bg          */
+  --ks-primary-100: #F7DEE1;   /* subtle hover                          */
+  --ks-primary-200: #EFBFC4;   /* subtle border / focus ring soft       */
+  --ks-primary-300: #DE8E96;
+  --ks-primary-400: #C25360;
+  --ks-primary-500: #A60E27;   /* lighter accent / links                */
+  --ks-primary:     #8C001A;   /* PRIMARY CTA                           */
+  --ks-primary-600: #8C001A;
+  --ks-primary-700: #730016;   /* hover (darker)                        */
+  --ks-primary-800: #5E0012;   /* active / pressed                      */
+  --ks-primary-900: #44000D;
+
+  /* ── Brand semantic aliases ──────────────────────────────── */
+  --color-primary:            var(--ks-primary);
+  --color-primary-hover:      var(--ks-primary-700);
+  --color-primary-active:     var(--ks-primary-800);
+  --color-primary-contrast:   #FFFFFF;
+  --color-primary-subtle:     var(--ks-primary-50);
+  --color-primary-subtle-hover: var(--ks-primary-100);
+  --color-primary-subtle-text:  var(--ks-primary-700);
+  --color-primary-border:     var(--ks-primary-200);
+  --color-focus-ring:         color-mix(in srgb, var(--ks-primary) 28%, transparent);
+
+  /* ── Surfaces (base white + warm hovers) ─────────────────── */
+  --surface-page:     #FFFFFF;
+  --surface-card:     #FFFFFF;
+  --surface-sunken:   #F8F8F7;   /* airy near-white page bg              */
+  --surface-hover:    #FAF5F4;   /* warm off-white row / item hover      */
+  --surface-active:   #F4EBEA;   /* warm off-white pressed               */
+  --surface-sidebar:  #F8F8F7;
+  --surface-overlay:  rgba(33, 18, 20, 0.45);
+
+  /* ── Text (neutral, from Espresso gray ramp) ─────────────── */
+  --text-strong:   var(--light-gray-900);  /* rgb(23,23,23)  headings    */
+  --text-default:  var(--light-gray-800);  /* rgb(56,56,56)  body        */
+  --text-muted:    var(--light-gray-700);  /* rgb(82,82,82)  secondary   */
+  --text-subtle:   var(--light-gray-600);  /* rgb(124,124,124) tertiary  */
+  --text-disabled: var(--light-gray-500);  /* rgb(153,153,153)           */
+  --text-on-primary: #FFFFFF;
+
+  /* ── Borders ─────────────────────────────────────────────── */
+  --border-subtle:  var(--light-gray-200); /* rgb(237,237,237)           */
+  --border-default: var(--light-gray-300); /* rgb(226,226,226)           */
+  --border-strong:  var(--light-gray-400); /* rgb(199,199,199)           */
+
+  /* ── Status (from Espresso semantic ramps) ───────────────── */
+  --color-success:        var(--light-green-700);
+  --color-success-surface: var(--light-green-50);
+  --color-success-border: var(--light-green-300);
+  --color-warning:        var(--light-amber-700);
+  --color-warning-surface: var(--light-amber-50);
+  --color-warning-border: var(--light-amber-300);
+  --color-danger:         var(--light-red-600);
+  --color-danger-surface: var(--light-red-50);
+  --color-danger-border:  var(--light-red-300);
+  --color-info:           var(--light-blue-600);
+  --color-info-surface:   var(--light-blue-50);
+  --color-info-border:    var(--light-blue-300);
+}
+
+:root {
+  /* Noto Sans is the default across all designs. */
+  --font-sans: "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  /* For Malayalam content (falls back to Noto Sans for Latin glyphs). */
+  --font-malayalam: "Noto Sans Malayalam", "Noto Sans", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* ── Font sizes (Espresso "text" scale) ──────────────────── */
+  --text-tiny: 10px;
+  --text-2xs:  10px;   /* affordance · overline · meta · hints */
+  --text-xs:   12px;
+  --text-sm:   13px;
+  --text-base: 14px;   /* default UI body */
+  --text-lg:   16px;
+  --text-xl:   18px;
+  --text-2xl:  20px;
+  --text-3xl:  24px;
+  --text-4xl:  26px;
+  --text-5xl:  32px;
+  --text-6xl:  40px;
+  --text-7xl:  44px;
+  --text-8xl:  64px;
+  --text-9xl:  88px;
+
+  /* ── Weights ─────────────────────────────────────────────── */
+  --weight-extralight: 200;
+  --weight-light:      300;
+  --weight-regular:  400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+  --weight-black:    800;
+
+  /* ── Line heights ────────────────────────────────────────── */
+  --leading-tight:   1.3;
+  --leading-snug:    1.4;
+  --leading-normal:  1.48;
+  --leading-relaxed: 1.6;
+
+  /* ── Letter spacing ──────────────────────────────────────── */
+  --tracking-tight:  -0.01em;
+  --tracking-normal: 0.005em;
+  --tracking-wide:   0.01em;
+}
+
+:root {
+  /* ── Spacing scale (px) ──────────────────────────────────── */
+  --space-0:  0px;
+  --space-1:  2px;
+  --space-2:  4px;
+  --space-3:  6px;
+  --space-4:  8px;
+  --space-5:  10px;
+  --space-6:  12px;
+  --space-7:  14px;
+  --space-8:  16px;
+  --space-9:  20px;
+  --space-10: 24px;
+  --space-11: 28px;
+  --space-12: 32px;
+  --space-14: 40px;
+  --space-16: 48px;
+  --space-20: 64px;
+
+  /* ── Radius (px) — from Espresso radius scale ────────────── */
+  --radius-xs:   4px;
+  --radius-sm:   5px;
+  --radius-md:   6px;
+  --radius-lg:   8px;
+  --radius-xl:   10px;
+  --radius-2xl:  12px;
+  --radius-3xl:  16px;
+  --radius-4xl:  20px;
+  --radius-full: 9999px;
+
+  /* ── Elevation (Espresso light-mode shadows) ─────────────── */
+  --shadow-xs: 0px 0px 1px 0px rgba(0,0,0,0.4), 0px 1px 2px 0px rgba(0,0,0,0.05);
+  --shadow-sm: 0px 0px 1px 0px rgba(0,0,0,0.4), 0px 1px 2px 0px rgba(0,0,0,0.15);
+  --shadow-md: 0px 1px 2px 0px rgba(0,0,0,0.08), 0px 4px 8px -2px rgba(0,0,0,0.12);
+  --shadow-lg: 0px 2px 4px 0px rgba(0,0,0,0.06), 0px 12px 24px -4px rgba(0,0,0,0.14);
+  --shadow-xl: 0px 8px 16px -4px rgba(0,0,0,0.10), 0px 24px 48px -8px rgba(0,0,0,0.18);
+  --shadow-card: 0 1px 2px rgba(20,14,14,0.04), 0 2px 10px rgba(20,14,14,0.05);
+  --shadow-card-hover: 0 2px 4px rgba(20,14,14,0.05), 0 10px 24px rgba(20,14,14,0.09);
+  --shadow-focus: 0 0 0 3px var(--color-focus-ring);
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   v3 premium refinement layer + app type-bump (+2px).
+   These are the CANONICAL rendered values the design landed on:
+   warm near-black text ramp, hairline warm borders, warm layered
+   elevation, warm canvas + linen sidebar. They override the DS
+   tokens above and are the single source of truth for the app.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  /* type bump (+2px) — the scale as actually rendered in the shell */
+  --text-tiny: 13px; --text-2xs: 13px; --text-xs: 14px; --text-sm: 15px;
+  --text-base: 16px; --text-lg: 18px; --text-xl: 20px; --text-2xl: 22px;
+  --text-3xl: 26px; --text-4xl: 28px; --text-5xl: 34px; --text-6xl: 42px;
+  --text-7xl: 46px; --text-8xl: 66px; --text-9xl: 90px;
+
+  /* heading weight used by page titles (h1 650 / -0.02em) */
+  --weight-heading: 650;
+
+  /* warm near-black text ramp */
+  --text-strong: #211C18; --text-default: #3A342E; --text-muted: #5C554D;
+  --text-subtle: #746C63; --text-disabled: #A39B91;
+
+  /* hairline warm borders */
+  --border-subtle: #F1EDE7; --border-default: #E8E3DB; --border-strong: #D7D0C6;
+
+  /* warm neutrals used by DS components */
+  --light-gray-50: #FAF8F5; --light-gray-100: #F4F0EA; --light-gray-200: #ECE7E0;
+
+  /* warm canvas + linen sidebar */
+  --surface-sunken: #F7F5F1; --surface-sidebar: #F5EFE6;
+  --ks-side-hover: #EDE6D9; --ks-side-divider: #E9E1D3;
+
+  /* table header ink + tracking (thead th) */
+  --ks-table-head: #8B8378;
+
+  /* thin warm scrollbar */
+  --ks-scroll-thumb: #D9D1C5; --ks-scroll-thumb-hover: #C9C0B1;
+
+  /* warm layered elevation */
+  --shadow-xs: 0 1px 2px rgba(46,32,20,.05), 0 0 0 0.5px rgba(46,32,20,.04);
+  --shadow-sm: 0 1px 2px rgba(46,32,20,.05), 0 2px 8px rgba(46,32,20,.04), 0 0 0 0.5px rgba(46,32,20,.04);
+  --shadow-md: 0 2px 6px rgba(46,32,20,.06), 0 8px 24px rgba(46,32,20,.10);
+  --shadow-lg: 0 4px 12px rgba(46,32,20,.06), 0 16px 40px rgba(46,32,20,.12);
+  --shadow-xl: 0 8px 20px rgba(46,32,20,.08), 0 32px 64px rgba(46,32,20,.16);
+  --shadow-card: 0 1px 2px rgba(46,32,20,.04), 0 4px 16px rgba(46,32,20,.05);
+  --shadow-card-hover: 0 2px 6px rgba(46,32,20,.06), 0 12px 32px rgba(46,32,20,.09);
+}
