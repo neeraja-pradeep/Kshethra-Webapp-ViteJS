@@ -139,7 +139,7 @@ export function WalkInOrderScreen({ products, categories, templeName, onClose, o
                 key={p.id}
                 type="button"
                 onClick={() => addToCart(p.id)}
-                className="flex min-h-22 flex-col justify-between gap-3 rounded-lg border-none bg-card p-3.25 text-left shadow-xs transition-shadow duration-120 ease-ks hover:bg-hover hover:shadow-sm"
+                className="flex min-h-[88px] flex-col justify-between gap-3 rounded-lg border-none bg-card p-3.25 text-left shadow-xs transition-shadow duration-120 ease-ks hover:bg-hover hover:shadow-sm"
               >
                 <span className="min-w-0">
                   <span className="block text-sm font-medium leading-snug text-ink-strong">{p.name}</span>
@@ -248,7 +248,7 @@ export function WalkInOrderScreen({ products, categories, templeName, onClose, o
             </>
           ) : (
             <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-7 py-9 text-center">
-              <span className="inline-flex h-14.5 w-14.5 items-center justify-center rounded-3xl bg-sunken text-ink-subtle ring-1 ring-inset ring-stroke-subtle">
+              <span className="inline-flex h-[58px] w-[58px] items-center justify-center rounded-3xl bg-sunken text-ink-subtle ring-1 ring-inset ring-stroke-subtle">
                 <Icon name="shopping-cart-simple" size={26} />
               </span>
               <div>

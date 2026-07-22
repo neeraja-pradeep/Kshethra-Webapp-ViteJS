@@ -59,7 +59,7 @@ export function CounterPaymentsDetail({ booking, method, onSelectMethod, onViewB
 
       <div className="flex flex-wrap items-center gap-2">
         <Button theme="default" variant="outline" onClick={onViewBooking} iconLeft={<Icon name="arrow-square-out" size={15} />}>
-          View in pooja bookings
+          View in Pooja Bookings
         </Button>
         <div className="flex-1" />
         <Button theme="primary" onClick={onRecord} iconLeft={<Icon name="check" size={16} />}>
