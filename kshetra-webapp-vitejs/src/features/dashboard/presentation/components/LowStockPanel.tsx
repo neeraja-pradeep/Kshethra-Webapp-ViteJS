@@ -1,6 +1,7 @@
-import type { LowStockItem } from '@/features/dashboard/domain/entities/low-stock-item'
-import { Icon } from '@/shared/ui'
 import { cn } from '@/shared/lib/cn'
+import { Icon } from '@/shared/ui'
+
+import type { LowStockItem } from '@/features/dashboard/domain/entities/low-stock-item'
 
 export interface LowStockPanelProps {
   items: LowStockItem[]

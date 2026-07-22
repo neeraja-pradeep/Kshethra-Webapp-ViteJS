@@ -1,7 +1,8 @@
+import { cn } from '@/shared/lib/cn'
+import { formatINR } from '@/shared/lib/format'
+
 import type { CounterCollectionPoint } from '@/features/dashboard/domain/entities/chart-series-point'
 import type { StatTile } from '@/features/dashboard/domain/entities/stat-tile'
-import { formatINR } from '@/shared/lib/format'
-import { cn } from '@/shared/lib/cn'
 
 import { DashboardStat } from './DashboardStat'
 import { formatWeekdayShort } from '../lib/formatDashboardDate'
@@ -36,7 +37,7 @@ export function CounterCollectionsPanel({ stats, collections }: CounterCollectio
             return (
               <div key={point.date} title={formatINR(point.amount)} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1">
                 <div
-                  className={cn('w-full max-w-8 rounded-t-[5px] rounded-b-[2px]', point.isToday ? 'bg-primary' : 'bg-primary-border')}
+                  className={cn('w-full max-w-8 rounded-t-sm rounded-b-[2px]', point.isToday ? 'bg-primary' : 'bg-primary-border')}
                   style={{ height: `${heightPx}px` }}
                 />
                 <span className={cn('text-2xs', point.isToday ? 'font-semibold text-primary' : 'font-normal text-ink-subtle')}>

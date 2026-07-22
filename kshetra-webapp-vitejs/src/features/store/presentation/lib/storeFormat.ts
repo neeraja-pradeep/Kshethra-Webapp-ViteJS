@@ -4,6 +4,9 @@ import type { Category } from '@/features/store/domain/entities/category'
 import type { FulfilmentStage, Order, PaymentState } from '@/features/store/domain/entities/order'
 import type { Product, StockLevel } from '@/features/store/domain/entities/product'
 
+/** Name recorded against refunds and stock adjustments (stand-in for the signed-in staff member). */
+export const ACTING_USER = 'Priya Menon'
+
 /** "2026-07-01" → "1 Jul 2026". Invalid input passes through unchanged. */
 export function formatOrderDate(iso: string): string {
   const parts = iso.split('-').map(Number)

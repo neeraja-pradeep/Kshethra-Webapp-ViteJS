@@ -1,6 +1,7 @@
+import { cn } from '@/shared/lib/cn'
+
 import type { BookingsTrendPoint } from '@/features/dashboard/domain/entities/chart-series-point'
 import type { StatTile } from '@/features/dashboard/domain/entities/stat-tile'
-import { cn } from '@/shared/lib/cn'
 
 import { DashboardStat } from './DashboardStat'
 import { formatDayMonth, formatWeekdayShort } from '../lib/formatDashboardDate'

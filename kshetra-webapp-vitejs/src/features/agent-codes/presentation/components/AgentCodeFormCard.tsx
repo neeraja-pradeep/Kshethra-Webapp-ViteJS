@@ -1,6 +1,7 @@
 import type { ChangeEvent, ReactNode } from 'react'
 
 import { Input, Switch } from '@/shared/ui'
+import { cn } from '@/shared/lib/cn'
 
 import type { AgentCodeStatus } from '@/features/agent-codes/domain/entities/agent-code'
 
@@ -61,7 +62,7 @@ export function AgentCodeFormCard({ mode, form, errors, fromDisplay, toDisplay, 
             <FieldView label="Usage limit" value={form.limit ? form.limit : 'Unlimited'} />
           </div>
           <div className="flex items-center gap-1.75 pt-1">
-            <span className="h-2 w-2 rounded-full" style={{ background: form.status === 'Active' ? 'var(--color-success)' : 'var(--border-strong)' }} />
+            <span className={cn('h-2 w-2 rounded-full', form.status === 'Active' ? 'bg-success' : 'bg-gray-400')} />
             <span className="text-sm font-medium text-ink-strong">{form.status}</span>
           </div>
         </>

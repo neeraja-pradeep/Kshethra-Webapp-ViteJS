@@ -1,6 +1,7 @@
+import { Icon } from '@/shared/ui'
+
 import type { FulfilmentStage, FulfilmentStageTone } from '@/features/dashboard/domain/entities/fulfilment-stage'
 import type { StatTile } from '@/features/dashboard/domain/entities/stat-tile'
-import { Icon } from '@/shared/ui'
 
 import { DashboardStat } from './DashboardStat'
 

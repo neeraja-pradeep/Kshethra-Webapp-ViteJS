@@ -100,7 +100,7 @@ export function OrderRefundPanel({
                 <span
                   className={cn(
                     'inline-flex h-4.5 w-4.5 flex-shrink-0 items-center justify-center rounded-sm text-white',
-                    ri.selected ? 'bg-primary' : 'bg-transparent ring-1.5 ring-inset ring-stroke-strong',
+                    ri.selected ? 'bg-primary' : 'bg-transparent ring-2 ring-inset ring-stroke-strong',
                   )}
                 >
                   {ri.selected && <Icon name="check" weight="fill" size={12} />}

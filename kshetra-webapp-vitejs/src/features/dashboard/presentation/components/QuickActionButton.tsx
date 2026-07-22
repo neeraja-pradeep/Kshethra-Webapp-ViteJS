@@ -1,6 +1,7 @@
-import type { QuickAction } from '@/features/dashboard/domain/entities/quick-action'
-import { Icon } from '@/shared/ui'
 import { cn } from '@/shared/lib/cn'
+import { Icon } from '@/shared/ui'
+
+import type { QuickAction } from '@/features/dashboard/domain/entities/quick-action'
 
 export interface QuickActionButtonProps {
   action: QuickAction

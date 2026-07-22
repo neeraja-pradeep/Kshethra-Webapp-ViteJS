@@ -1,5 +1,6 @@
-import type { StatTile } from '@/features/dashboard/domain/entities/stat-tile'
 import { formatINR } from '@/shared/lib/format'
+
+import type { StatTile } from '@/features/dashboard/domain/entities/stat-tile'
 
 /**
  * Header stats for the "Pooja bookings" section. Poojas-today and

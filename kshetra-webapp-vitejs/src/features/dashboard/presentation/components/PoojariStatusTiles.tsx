@@ -1,5 +1,6 @@
-import type { PoojariStatusTile, PoojariStatusTone } from '@/features/dashboard/domain/entities/poojari-status'
 import { Icon } from '@/shared/ui'
+
+import type { PoojariStatusTile, PoojariStatusTone } from '@/features/dashboard/domain/entities/poojari-status'
 
 export interface PoojariStatusTilesProps {
   tiles: PoojariStatusTile[]

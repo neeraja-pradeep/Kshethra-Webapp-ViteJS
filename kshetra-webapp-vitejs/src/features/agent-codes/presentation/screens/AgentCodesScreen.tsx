@@ -23,7 +23,7 @@ import { AgentCodesTable } from '@/features/agent-codes/presentation/components/
 const PULSE_MS = 260
 const TOAST_MS = 2400
 
-const STATUS_DOT: Record<AgentCodeStatus, string> = { Active: 'var(--color-success)', Inactive: 'var(--text-disabled)' }
+const STATUS_DOT: Record<AgentCodeStatus, string> = { Active: 'bg-success', Inactive: 'bg-gray-400' }
 const STATUS_ORDER: AgentCodeStatus[] = ['Active', 'Inactive']
 
 function blankForm(): AgentCodeFormValues {
@@ -179,7 +179,7 @@ export function AgentCodesScreen() {
     const list: AgentCodeKpi[] = [{ label: 'codes', value: String(filteredCodes.length) }]
     STATUS_ORDER.forEach((status) => {
       const count = counts[status]
-      if (count) list.push({ label: status, value: String(count), dotColor: STATUS_DOT[status] })
+      if (count) list.push({ label: status, value: String(count), dotClassName: STATUS_DOT[status] })
     })
     return list
   }, [filteredCodes])
