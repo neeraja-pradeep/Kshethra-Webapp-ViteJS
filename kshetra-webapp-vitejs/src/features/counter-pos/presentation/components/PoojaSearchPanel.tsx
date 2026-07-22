@@ -35,7 +35,7 @@ export function PoojaSearchPanel({
   onPick,
 }: PoojaSearchPanelProps) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-sm">
+    <div className="flex flex-shrink-0 flex-col overflow-hidden rounded-2xl bg-card shadow-sm">
       <div className="flex-shrink-0 border-b border-stroke-subtle px-4 pb-3 pt-3.5">
         <Input
           size="md"
@@ -79,7 +79,7 @@ export function PoojaSearchPanel({
         )}
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-0.75 overflow-y-auto px-2.5 py-2">
+      <div className="flex flex-col gap-0.75 px-2.5 py-2">
         {results.map((p) => (
           <button
             key={p.id}

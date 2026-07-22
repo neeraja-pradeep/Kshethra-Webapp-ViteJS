@@ -28,7 +28,7 @@ export function PeoplePanel({ people, nakshatraOptions, onNameChange, onNakshatr
         </span>
       </div>
 
-      <div className="flex max-h-[170px] flex-col gap-2 overflow-y-auto px-4 py-2.5">
+      <div className="flex flex-col gap-2 px-4 py-2.5">
         {people.map((p, i) => (
           <div key={p.id} className="grid grid-cols-[62px_2fr_1.4fr_30px] items-center gap-2.25">
             <span className="flex-shrink-0 text-2xs font-semibold uppercase tracking-wide text-ink-subtle">
