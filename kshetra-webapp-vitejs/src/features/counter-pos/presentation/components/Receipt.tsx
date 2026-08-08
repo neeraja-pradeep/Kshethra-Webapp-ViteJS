@@ -2,6 +2,7 @@ import { cn } from '@/shared/lib/cn'
 import { formatINR } from '@/shared/lib/format'
 import { Button, Icon } from '@/shared/ui'
 
+import { paymentMethodLabel } from '@/features/counter-pos/domain/entities/payment'
 import type { ReceiptPage } from '@/features/counter-pos/presentation/lib/receipt'
 
 const COLS = 'grid-cols-[22px_1.05fr_0.8fr_1.35fr_78px_64px]'
@@ -46,7 +47,7 @@ export function Receipt({ open, pages, closeLabel, onClose, onPrint }: ReceiptPr
               <div className="flex justify-between gap-3">
                 <span className="text-ink-subtle">Counter</span>
                 <span className="text-ink">
-                  {pg.counter} · paid by {pg.method}
+                  {pg.counter} · paid by {paymentMethodLabel(pg.method)}
                 </span>
               </div>
             </div>

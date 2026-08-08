@@ -3,13 +3,13 @@ import { formatINR } from '@/shared/lib/format'
 import { Icon } from '@/shared/ui'
 
 import type { BookingLine } from '@/features/counter-pos/domain/entities/booking'
-import type { TransactionPerson } from '@/features/counter-pos/domain/entities/transaction'
+import type { ReceiptPerson } from '@/features/counter-pos/domain/entities/counter-receipt'
 import { formatDateShort } from '@/features/counter-pos/presentation/lib/date'
 
 export interface BookingLineCardProps {
   line: BookingLine
   /** Named people this line currently resolves to (booking-roster people minus blanks). */
-  people: readonly TransactionPerson[]
+  people: readonly ReceiptPerson[]
   onEdit: () => void
   onRemove: () => void
 }
@@ -74,7 +74,7 @@ export function BookingLineCard({ line, people, onEdit, onRemove }: BookingLineC
             {people.map((p, i) => (
               <span key={`${p.name}-${i}`} className="inline-flex items-center gap-1.25 rounded-full bg-card px-2.25 py-0.75 text-xs shadow-xs">
                 <span className="font-medium text-ink">{p.name}</span>
-                {p.nakshatra && <span className="text-ink-subtle">{p.nakshatra}</span>}
+                {p.nakshatram && <span className="text-ink-subtle">{p.nakshatram}</span>}
               </span>
             ))}
           </div>

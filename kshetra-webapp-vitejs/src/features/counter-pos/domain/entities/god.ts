@@ -3,7 +3,7 @@
 export type GodStatus = 'Active' | 'Inactive'
 
 export interface God {
-  readonly id: string
+  readonly id: number
   readonly name: string
   readonly status: GodStatus
   readonly sortOrder: number

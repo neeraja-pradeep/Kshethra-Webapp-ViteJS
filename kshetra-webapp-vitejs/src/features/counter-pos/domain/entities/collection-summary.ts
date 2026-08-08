@@ -5,8 +5,14 @@ export interface CollectionByMethod {
   readonly amount: number
 }
 
-/** Today's counter collection, derived from the day's transactions. */
+/**
+ * What the counter has taken in on a given day, as the server totals it.
+ * Every tender is always present (zeros included) so the KPI band never
+ * reflows. Cancelled receipts are excluded — that money went back.
+ */
 export interface CollectionSummary {
+  /** ISO `yyyy-mm-dd` the figures are for. */
+  readonly date: string
   readonly totalAmount: number
   readonly poojaCount: number
   readonly transactionCount: number

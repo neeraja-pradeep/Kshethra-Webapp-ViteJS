@@ -7,6 +7,7 @@ export interface PeoplePanelProps {
   people: readonly BookingPerson[]
   nakshatraOptions: readonly SelectOption[]
   onNameChange: (id: string, value: string) => void
+  /** `value` is the nakshatram id as a string, or '' for none. */
   onNakshatraChange: (id: string, value: string) => void
   onRemove: (id: string) => void
   onAddPerson: () => void
@@ -43,7 +44,7 @@ export function PeoplePanel({ people, nakshatraOptions, onNameChange, onNakshatr
             <Select
               size="sm"
               options={[{ value: '', label: 'Nakshatra' }, ...nakshatraOptions]}
-              value={p.nakshatra}
+              value={p.nakshatramId === null ? '' : String(p.nakshatramId)}
               onChange={(e) => onNakshatraChange(p.id, e.target.value)}
             />
             {people.length > 1 ? (

@@ -1,29 +1,5 @@
-/** The 27 nakshatras — options offered against every person on a booking. */
-export type Nakshatra =
-  | 'Ashwini'
-  | 'Bharani'
-  | 'Krittika'
-  | 'Rohini'
-  | 'Mrigashira'
-  | 'Ardra'
-  | 'Punarvasu'
-  | 'Pushya'
-  | 'Ashlesha'
-  | 'Magha'
-  | 'Purva Phalguni'
-  | 'Uttara Phalguni'
-  | 'Hasta'
-  | 'Chitra'
-  | 'Swati'
-  | 'Vishakha'
-  | 'Anuradha'
-  | 'Jyeshtha'
-  | 'Mula'
-  | 'Purva Ashadha'
-  | 'Uttara Ashadha'
-  | 'Shravana'
-  | 'Dhanishta'
-  | 'Shatabhisha'
-  | 'Purva Bhadrapada'
-  | 'Uttara Bhadrapada'
-  | 'Revati'
+/** A nakshatra option, from `GET user/nakshatrams/`. */
+export interface Nakshatra {
+  readonly id: number
+  readonly name: string
+}

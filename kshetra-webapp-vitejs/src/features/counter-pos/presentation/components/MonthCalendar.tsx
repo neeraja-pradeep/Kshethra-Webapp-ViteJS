@@ -10,14 +10,21 @@ export interface MonthCalendarProps {
   /** 0-based month index. */
   month: number
   selectedDates: readonly string[]
+  /**
+   * When set, only these ISO dates are selectable. A special pooja rejects any
+   * other date server-side, so blocking them here saves the operator entering a
+   * whole booking that is guaranteed to fail.
+   */
+  allowedDates?: readonly string[]
   onToggleDate: (iso: string) => void
   onPrevMonth: () => void
   onNextMonth: () => void
 }
 
 /** Single-month calendar grid — click days to select multiple booking dates. */
-export function MonthCalendar({ year, month, selectedDates, onToggleDate, onPrevMonth, onNextMonth }: MonthCalendarProps) {
+export function MonthCalendar({ year, month, selectedDates, allowedDates, onToggleDate, onPrevMonth, onNextMonth }: MonthCalendarProps) {
   const cells = buildCalendarCells(year, month)
+  const allowed = allowedDates ? new Set(allowedDates) : null
 
   return (
     <div className="flex flex-col gap-2 rounded-lg bg-active p-3">
@@ -53,18 +60,19 @@ export function MonthCalendar({ year, month, selectedDates, onToggleDate, onPrev
         {cells.map((c) => {
           if (c.blank) return <span key={c.key} />
           const selected = selectedDates.includes(c.iso)
+          const blocked = c.isPast || (allowed !== null && !allowed.has(c.iso))
           return (
             <button
               key={c.key}
               type="button"
-              disabled={c.isPast}
+              disabled={blocked}
               onClick={() => onToggleDate(c.iso)}
               className={cn(
                 'inline-flex h-8.5 items-center justify-center rounded-md border-none text-sm tabular-nums',
-                c.isPast && 'cursor-default bg-transparent text-ink-subtle opacity-40',
-                !c.isPast && !selected && 'cursor-pointer bg-transparent text-ink hover:bg-hover',
-                !c.isPast && selected && 'cursor-pointer bg-primary font-semibold text-white',
-                !c.isPast && !selected && c.isToday && 'font-semibold ring-2 ring-inset ring-primary-border',
+                blocked && 'cursor-default bg-transparent text-ink-subtle opacity-40',
+                !blocked && !selected && 'cursor-pointer bg-transparent text-ink hover:bg-hover',
+                !blocked && selected && 'cursor-pointer bg-primary font-semibold text-white',
+                !blocked && !selected && c.isToday && 'font-semibold ring-2 ring-inset ring-primary-border',
               )}
             >
               {c.day}

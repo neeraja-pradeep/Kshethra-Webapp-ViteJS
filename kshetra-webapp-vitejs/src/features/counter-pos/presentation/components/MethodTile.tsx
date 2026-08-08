@@ -1,13 +1,13 @@
 import { cn } from '@/shared/lib/cn'
 import { Icon } from '@/shared/ui'
 
-import type { PaymentMethod } from '@/features/counter-pos/domain/entities/payment'
+import { paymentMethodLabel, type PaymentMethod } from '@/features/counter-pos/domain/entities/payment'
 
 const METHOD_ICON: Record<PaymentMethod, string> = {
-  Cash: 'money',
-  Card: 'credit-card',
-  UPI: 'device-mobile',
-  'Net banking': 'bank',
+  cash: 'money',
+  card: 'credit-card',
+  upi: 'device-mobile',
+  netbanking: 'bank',
 }
 
 export interface MethodTileProps {
@@ -30,7 +30,7 @@ export function MethodTile({ method, selected, onSelect }: MethodTileProps) {
       )}
     >
       <Icon name={METHOD_ICON[method]} size={20} />
-      {method}
+      {paymentMethodLabel(method)}
     </button>
   )
 }

@@ -1,26 +1,28 @@
 import { useEffect, useMemo, useState } from 'react'
 
-import { Button, Icon } from '@/shared/ui'
+import { TEMPLE_NAME } from '@/core/config/app'
+import { toFailure } from '@/core/error/result'
+import { Alert, Button, Icon, Spinner } from '@/shared/ui'
 
-import type { AgentBooking } from '@/features/counter-pos/domain/entities/agent-booking'
+import { PERMISSIONS } from '@/features/auth/application/hooks/permissions'
+import { useCan } from '@/features/auth/application/hooks/useCan'
+import { useAgentBookingsQuery } from '@/features/counter-pos/application/queries/useAgentBookingsQuery'
+import { useGodsQuery, useNakshatramsQuery, usePoojasQuery } from '@/features/counter-pos/application/queries/useCatalogueQueries'
+import { useCollectionSummaryQuery } from '@/features/counter-pos/application/queries/useCollectionSummaryQuery'
+import { useCreateCounterSaleMutation } from '@/features/counter-pos/application/queries/useCreateCounterSaleMutation'
+import { useRecordAgentPaymentMutation } from '@/features/counter-pos/application/queries/useRecordAgentPaymentMutation'
+import { countOccurrences, MAX_OCCURRENCES_PER_SALE } from '@/features/counter-pos/domain/entities/booking'
 import type { BookingLine, BookingPerson } from '@/features/counter-pos/domain/entities/booking'
-import type { CollectionSummary } from '@/features/counter-pos/domain/entities/collection-summary'
+import type { CounterReceipt, ReceiptPerson } from '@/features/counter-pos/domain/entities/counter-receipt'
 import type { PaymentMethod } from '@/features/counter-pos/domain/entities/payment'
-import type { Pooja } from '@/features/counter-pos/domain/entities/pooja'
-import type { Transaction, TransactionPerson } from '@/features/counter-pos/domain/entities/transaction'
-import { AGENT_BOOKINGS } from '@/features/counter-pos/presentation/data/agent-bookings.mock'
-import { COUNTER_STAFF } from '@/features/counter-pos/presentation/data/counter-staff.mock'
-import { GODS } from '@/features/counter-pos/presentation/data/gods.mock'
-import { NAKSHATRAS } from '@/features/counter-pos/presentation/data/nakshatras.mock'
-import { PAYMENT_METHODS } from '@/features/counter-pos/presentation/data/payment-methods.mock'
-import { POOJAS } from '@/features/counter-pos/presentation/data/poojas.mock'
-import { SEED_NEXT_RECEIPT_NO, SEED_TRANSACTIONS } from '@/features/counter-pos/presentation/data/transactions.mock'
-import { nowTimeDisplay, todayDisplay, todayISO } from '@/features/counter-pos/presentation/lib/date'
+import { priceForDate, type Pooja } from '@/features/counter-pos/domain/entities/pooja'
+import { todayISO } from '@/features/counter-pos/presentation/lib/date'
 import { buildReceiptPages } from '@/features/counter-pos/presentation/lib/receipt'
 import { BookingPanel } from '@/features/counter-pos/presentation/components/BookingPanel'
 import type { BookingPanelLine } from '@/features/counter-pos/presentation/components/BookingPanel'
 import { CounterPaymentsModal } from '@/features/counter-pos/presentation/components/CounterPaymentsModal'
 import type { CounterPaymentsMode } from '@/features/counter-pos/presentation/components/CounterPaymentsModal'
+import { CounterToast } from '@/features/counter-pos/presentation/components/CounterToast'
 import { KpiBand } from '@/features/counter-pos/presentation/components/KpiBand'
 import { PeoplePanel } from '@/features/counter-pos/presentation/components/PeoplePanel'
 import { PoojaConfigModal } from '@/features/counter-pos/presentation/components/PoojaConfigModal'
@@ -28,12 +30,28 @@ import { PoojaSearchPanel } from '@/features/counter-pos/presentation/components
 import { Receipt } from '@/features/counter-pos/presentation/components/Receipt'
 import { TakePaymentModal } from '@/features/counter-pos/presentation/components/TakePaymentModal'
 
-const TEMPLE_NAME = 'Sri Kshetra Devasthanam'
-const STAFF_NAME = COUNTER_STAFF[0]?.name ?? 'Ravi Kumar'
+/**
+ * A timed-out write may still have been recorded, so the operator must check
+ * before ringing it up again — there is no edit path, only void-and-re-ring.
+ */
+const TIMEOUT_WARNING =
+  'The server took too long to reply, so it is unclear whether this went through. Do NOT take payment again until you have confirmed it with a supervisor — it may already be recorded.'
+
+function failureMessageForWrite(error: unknown, fallback: string): string {
+  const failure = toFailure(error)
+  if (failure?.kind === 'timeout') return TIMEOUT_WARNING
+  return failure?.message ?? fallback
+}
+
+/** Longest result list the catalogue panel renders at once. */
+const MAX_RESULTS = 80
+const TOAST_DURATION_MS = 2600
+/** Server-side search is one request per keystroke without this. */
+const SEARCH_DEBOUNCE_MS = 300
 
 interface ConfigState {
   readonly editId: string | null
-  readonly poojaId: string
+  readonly poojaId: number
   readonly name: string
   readonly godName: string
   readonly base: number
@@ -42,94 +60,112 @@ interface ConfigState {
   readonly remarks: string
   readonly calYear: number
   readonly calMonth: number
-}
-
-function godNameOf(id: string): string {
-  return GODS.find((g) => g.id === id)?.name ?? ''
+  /** Set for a special pooja: the only dates the server will accept. */
+  readonly allowedDates: readonly string[] | undefined
 }
 
 /** Counter Bookings — walk-in pooja sale + billing, and settlement of app agent-code bookings. */
 export function CounterPosScreen() {
-  const [people, setPeople] = useState<BookingPerson[]>([{ id: 'P1', name: '', nakshatra: '' }])
+  const can = useCan()
+  const canSell = can(PERMISSIONS.operateCounter) && can(PERMISSIONS.addPoojaOrder)
+  const canCollect = can(PERMISSIONS.collectCounterPayment)
+
+  // ── server state ──
+  const today = todayISO()
+  const poojasQuery = usePoojasQuery()
+  const godsQuery = useGodsQuery()
+  const nakshatramsQuery = useNakshatramsQuery()
+  const summaryQuery = useCollectionSummaryQuery(today)
+  const createSale = useCreateCounterSaleMutation()
+  const recordPayment = useRecordAgentPaymentMutation()
+
+  // ── client state ──
+  const [people, setPeople] = useState<BookingPerson[]>([{ id: 'P1', name: '', nakshatramId: null }])
   const [peopleSeq, setPeopleSeq] = useState(2)
   const [bookingSeq, setBookingSeq] = useState(1)
   const [search, setSearch] = useState('')
   const [browseOpen, setBrowseOpen] = useState(false)
-  const [browseGodId, setBrowseGodId] = useState<string | null>(null)
+  const [browseGodId, setBrowseGodId] = useState<number | null>(null)
   const [config, setConfig] = useState<ConfigState | null>(null)
   const [booking, setBooking] = useState<BookingLine[]>([])
   const [payOpen, setPayOpen] = useState(false)
-  const [payMethod, setPayMethod] = useState<PaymentMethod>('Cash')
+  const [payMethod, setPayMethod] = useState<PaymentMethod>('cash')
   const [receiptOpen, setReceiptOpen] = useState(false)
-  const [receipt, setReceipt] = useState<Transaction | null>(null)
-  const [transactions, setTransactions] = useState<Transaction[]>(SEED_TRANSACTIONS.slice())
-  const [nextRcp, setNextRcp] = useState(SEED_NEXT_RECEIPT_NO)
+  const [receipt, setReceipt] = useState<CounterReceipt | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
 
   const [cpOpen, setCpOpen] = useState(false)
   const [cpSearch, setCpSearch] = useState('')
-  const [cpSelRef, setCpSelRef] = useState<string | null>(null)
-  const [cpMethod, setCpMethod] = useState<PaymentMethod>('Cash')
-  const [cpPaid, setCpPaid] = useState(false)
-  const [agentBookings, setAgentBookings] = useState<AgentBooking[]>(AGENT_BOOKINGS.slice())
+  const [cpDebouncedSearch, setCpDebouncedSearch] = useState('')
+  const [cpSelId, setCpSelId] = useState<number | null>(null)
+  const [cpMethod, setCpMethod] = useState<PaymentMethod>('cash')
+  const [cpReceipt, setCpReceipt] = useState<CounterReceipt | null>(null)
 
-  // ── derived — roster & booking math (recomputed each render, never mirrored into state) ──
+  const agentBookingsQuery = useAgentBookingsQuery({ search: cpDebouncedSearch || undefined, enabled: cpOpen })
+
+  const gods = useMemo(() => godsQuery.data ?? [], [godsQuery.data])
+  const poojas = useMemo(() => poojasQuery.data ?? [], [poojasQuery.data])
+  const nakshatrams = useMemo(() => nakshatramsQuery.data ?? [], [nakshatramsQuery.data])
+
+  const godNameOf = useMemo(() => {
+    const names = new Map(gods.map((god) => [god.id, god.name]))
+    return (id: number | undefined) => (id === undefined ? '' : (names.get(id) ?? ''))
+  }, [gods])
+
+  // ── derived — roster & booking math ──
   const namedPeople = useMemo(() => people.filter((p) => p.name.trim()), [people])
 
-  const sectionPeople = (line: BookingLine): TransactionPerson[] =>
+  const nakshatraNameOf = useMemo(() => {
+    const names = new Map(nakshatrams.map((n) => [n.id, n.name]))
+    return (id: number | null) => (id === null ? '' : (names.get(id) ?? ''))
+  }, [nakshatrams])
+
+  const sectionPeople = (line: BookingLine): ReceiptPerson[] =>
     line.peopleIds
       .map((id) => people.find((p) => p.id === id))
       .filter((p): p is BookingPerson => !!p && p.name.trim().length > 0)
-      .map((p) => ({ name: p.name.trim(), nakshatra: p.nakshatra }))
+      .map((p) => ({ name: p.name.trim(), nakshatram: nakshatraNameOf(p.nakshatramId) }))
 
   const bookingLines: BookingPanelLine[] = booking.map((line) => ({ line, people: sectionPeople(line) }))
   const orderTotal = booking.reduce((sum, line) => sum + line.base * sectionPeople(line).length * line.dates.length, 0)
   const orderPoojaCount = booking.reduce((sum, line) => sum + sectionPeople(line).length * line.dates.length, 0)
   const bookingValid = booking.length > 0 && booking.every((line) => sectionPeople(line).length > 0)
   const paymentBlocked = booking.length > 0 && !bookingValid
+  // The server rejects the whole sale past this, so stop it before the operator pays.
+  const overOccurrenceCap = countOccurrences(booking) > MAX_OCCURRENCES_PER_SALE
 
-  const activeGods = useMemo(() => GODS.filter((g) => g.status === 'Active').slice().sort((a, b) => a.sortOrder - b.sortOrder), [])
-  const activePoojas = useMemo(() => POOJAS.filter((p) => p.status === 'Active'), [])
+  const activeGods = useMemo(() => gods.filter((g) => g.status === 'Active'), [gods])
 
   const matchedPoojas = useMemo(() => {
-    let list = activePoojas
-    if (browseGodId) list = list.filter((p) => p.godIds.includes(browseGodId))
+    let list = poojas
+    if (browseGodId !== null) list = list.filter((p) => p.godIds.includes(browseGodId))
     const q = search.trim().toLowerCase()
     if (q) list = list.filter((p) => p.name.toLowerCase().includes(q))
     return list.slice().sort((a, b) => a.name.localeCompare(b.name))
-  }, [activePoojas, browseGodId, search])
-  const results = matchedPoojas.slice(0, 80)
+  }, [poojas, browseGodId, search])
+  const results = matchedPoojas.slice(0, MAX_RESULTS)
 
-  const collectionSummary: CollectionSummary = useMemo(() => {
-    const byMethod = PAYMENT_METHODS.map((method) => ({
-      method,
-      amount: transactions.filter((t) => t.method === method).reduce((sum, t) => sum + t.total, 0),
-    }))
-    return {
-      totalAmount: transactions.reduce((sum, t) => sum + t.total, 0),
-      poojaCount: transactions.reduce((sum, t) => sum + t.poojaCount, 0),
-      transactionCount: transactions.length,
-      byMethod,
-    }
-  }, [transactions])
-
-  const cpRows = useMemo(() => {
-    const q = cpSearch.trim().toLowerCase()
-    return agentBookings
-      .filter((b) => !q || `${b.orderRef} ${b.code} ${b.devotee} ${b.phone} ${b.poojaSummary}`.toLowerCase().includes(q))
-      .slice()
-      .sort((a, b) => Number(a.paid) - Number(b.paid))
-  }, [agentBookings, cpSearch])
-  const cpSelected = cpSelRef ? (agentBookings.find((b) => b.orderRef === cpSelRef) ?? null) : null
-  const cpMode: CounterPaymentsMode = cpSelRef && cpPaid ? 'receipt' : cpSelRef ? 'detail' : 'list'
+  const cpRows = agentBookingsQuery.data ?? []
+  const cpSelected = cpSelId === null ? null : (cpRows.find((b) => b.orderId === cpSelId) ?? null)
+  const cpMode: CounterPaymentsMode = cpReceipt ? 'receipt' : cpSelected ? 'detail' : 'list'
 
   const receiptPages = useMemo(() => (receipt ? buildReceiptPages(receipt, TEMPLE_NAME) : []), [receipt])
+
+  const catalogueError = poojasQuery.isError || godsQuery.isError || nakshatramsQuery.isError
+  const isCatalogueLoading = poojasQuery.isPending || godsQuery.isPending || nakshatramsQuery.isPending
+  const saleErrorMessage = createSale.isError ? failureMessageForWrite(createSale.error, 'Could not record the sale.') : ''
+  const cpErrorMessage = recordPayment.isError
+    ? failureMessageForWrite(recordPayment.error, 'Could not record the payment.')
+    : agentBookingsQuery.isError
+      ? (toFailure(agentBookingsQuery.error)?.message ?? 'Could not load bookings.')
+      : ''
 
   // ── escape closes the topmost open layer ──
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       if (receiptOpen) return closeReceipt()
-      if (payOpen) return setPayOpen(false)
+      if (payOpen) return closePay()
       if (config) return setConfig(null)
       if (cpOpen) return closeCp()
       if (browseOpen) setBrowseOpen(false)
@@ -139,16 +175,29 @@ export function CounterPosScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [receiptOpen, payOpen, config, cpOpen, browseOpen])
 
+  // Search the counter-payments list server-side, but not on every keystroke.
+  useEffect(() => {
+    const id = setTimeout(() => setCpDebouncedSearch(cpSearch), SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(id)
+  }, [cpSearch])
+
+  useEffect(() => {
+    if (!toast) return
+    const id = setTimeout(() => setToast(null), TOAST_DURATION_MS)
+    return () => clearTimeout(id)
+  }, [toast])
+
   // ── people roster ──
   function addPerson() {
-    setPeople((prev) => [...prev, { id: `P${peopleSeq}`, name: '', nakshatra: '' }])
+    setPeople((prev) => [...prev, { id: `P${peopleSeq}`, name: '', nakshatramId: null }])
     setPeopleSeq((n) => n + 1)
   }
   function setPersonName(id: string, value: string) {
     setPeople((prev) => prev.map((p) => (p.id === id ? { ...p, name: value } : p)))
   }
-  function setPersonNakshatra(id: string, value: string) {
-    setPeople((prev) => prev.map((p) => (p.id === id ? { ...p, nakshatra: value as BookingPerson['nakshatra'] } : p)))
+  function setPersonNakshatram(id: string, value: string) {
+    const nakshatramId = value === '' ? null : Number(value)
+    setPeople((prev) => prev.map((p) => (p.id === id ? { ...p, nakshatramId } : p)))
   }
   function removePerson(id: string) {
     setPeople((prev) => (prev.length > 1 ? prev.filter((p) => p.id !== id) : prev))
@@ -157,23 +206,38 @@ export function CounterPosScreen() {
 
   // ── pooja config modal ──
   function openConfigForNew(pooja: Pooja) {
-    const now = new Date()
+    // A special pooja may only be booked on a published date, so default to the
+    // first one rather than today — today is usually not one of them.
+    const allowedDates = pooja.isSpecial ? pooja.specialDates.map((d) => d.date) : undefined
+    if (allowedDates && allowedDates.length === 0) {
+      // Every date would be blocked; opening the dialog would strand the
+      // operator in a form they cannot submit.
+      setToast(`${pooja.name} has no published dates to book`)
+      return
+    }
+    const firstDate = pooja.isSpecial ? allowedDates?.[0] : todayISO()
+    const dates = firstDate ? [firstDate] : []
+    const anchor = firstDate ?? todayISO()
+    const [year, month] = anchor.split('-').map(Number)
+
     setConfig({
       editId: null,
       poojaId: pooja.id,
       name: pooja.name,
-      godName: godNameOf(pooja.godIds[0] ?? ''),
-      base: pooja.offlinePrice,
+      godName: godNameOf(pooja.godIds[0]),
+      base: priceForDate(pooja, anchor),
       selectedIds: new Set(namedPeople.map((p) => p.id)),
-      dates: [todayISO()],
+      dates,
       remarks: '',
-      calYear: now.getFullYear(),
-      calMonth: now.getMonth(),
+      calYear: year ?? new Date().getFullYear(),
+      calMonth: (month ?? 1) - 1,
+      allowedDates,
     })
   }
   function openConfigForEdit(lineId: string) {
     const line = booking.find((b) => b.id === lineId)
     if (!line) return
+    const pooja = poojas.find((p) => p.id === line.poojaId)
     const first = line.dates[0] ?? todayISO()
     const [y, m] = first.split('-').map(Number)
     setConfig({
@@ -185,8 +249,9 @@ export function CounterPosScreen() {
       selectedIds: new Set(line.peopleIds),
       dates: line.dates.slice(),
       remarks: line.remarks,
-      calYear: y,
+      calYear: y ?? new Date().getFullYear(),
       calMonth: (m ?? 1) - 1,
+      allowedDates: pooja?.isSpecial ? pooja.specialDates.map((d) => d.date) : undefined,
     })
   }
   function closeConfig() {
@@ -269,53 +334,45 @@ export function CounterPosScreen() {
 
   // ── take payment / receipt ──
   function openPay() {
-    if (bookingValid) {
-      setPayOpen(true)
-      setPayMethod('Cash')
-    }
+    if (!bookingValid || !canSell || overOccurrenceCap) return
+    createSale.reset()
+    setPayOpen(true)
+    setPayMethod('cash')
   }
   function closePay() {
+    if (createSale.isPending) return
     setPayOpen(false)
   }
   function confirmPayment() {
-    if (!bookingValid) return
-    const devotees: TransactionPerson[] = namedPeople.map((p) => ({ name: p.name.trim(), nakshatra: p.nakshatra }))
-    const items = booking.map((line) => {
-      const ppl = sectionPeople(line)
-      return {
-        name: line.name,
-        god: line.godName,
-        dates: line.dates.slice(),
-        peopleCount: ppl.length,
-        count: ppl.length * line.dates.length,
-        amount: line.base * ppl.length * line.dates.length,
-        base: line.base,
-        people: ppl,
-        remarks: line.remarks,
-      }
-    })
-    const total = items.reduce((sum, it) => sum + it.amount, 0)
-    const txn: Transaction = {
-      rcp: `RCP-${nextRcp}`,
-      time: nowTimeDisplay(),
-      date: todayDisplay(),
-      devotees,
-      items,
-      total,
-      method: payMethod,
-      staff: STAFF_NAME,
-      poojaCount: items.reduce((sum, it) => sum + it.count, 0),
-    }
-    setTransactions((prev) => [txn, ...prev])
-    setNextRcp((n) => n + 1)
-    setBooking([])
-    setPeople([{ id: `P${peopleSeq}`, name: '', nakshatra: '' }])
-    setPeopleSeq((n) => n + 1)
-    setPayOpen(false)
-    setReceipt(txn)
-    setReceiptOpen(true)
-    setSearch('')
-    setBrowseGodId(null)
+    if (!bookingValid || createSale.isPending) return
+    const namedIds = new Set(namedPeople.map((p) => p.id))
+
+    createSale.mutate(
+      {
+        paymentMethod: payMethod,
+        // The payer's name and phone have no field on this screen yet.
+        customerName: '',
+        customerPhone: '',
+        people: namedPeople,
+        // Drop refs whose name was blanked after the line was configured —
+        // the server rejects the whole sale on an unknown person ref.
+        lines: booking.map((line) => ({ ...line, peopleIds: line.peopleIds.filter((id) => namedIds.has(id)) })),
+      },
+      {
+        onSuccess: (saved) => {
+          // Everything printed comes from the server: receipt number, total, staff.
+          setBooking([])
+          setPeople([{ id: `P${peopleSeq}`, name: '', nakshatramId: null }])
+          setPeopleSeq((n) => n + 1)
+          setPayOpen(false)
+          setReceipt(saved)
+          setReceiptOpen(true)
+          setSearch('')
+          setBrowseGodId(null)
+          setToast(`Sale recorded · ${saved.receiptNo}`)
+        },
+      },
+    )
   }
   function closeReceipt() {
     setReceiptOpen(false)
@@ -331,31 +388,42 @@ export function CounterPosScreen() {
 
   // ── counter payments (app agent-code bookings) ──
   function openCp() {
+    recordPayment.reset()
     setCpOpen(true)
     setCpSearch('')
-    setCpSelRef(null)
-    setCpMethod('Cash')
-    setCpPaid(false)
+    setCpDebouncedSearch('')
+    setCpSelId(null)
+    setCpMethod('cash')
+    setCpReceipt(null)
   }
   function closeCp() {
+    if (recordPayment.isPending) return
     setCpOpen(false)
-    setCpSelRef(null)
-    setCpPaid(false)
+    setCpSelId(null)
+    setCpReceipt(null)
   }
-  function selectCpRow(orderRef: string) {
-    setCpSelRef(orderRef)
-    setCpMethod('Cash')
-    setCpPaid(false)
+  function selectCpRow(orderId: number) {
+    recordPayment.reset()
+    setCpSelId(orderId)
+    setCpMethod('cash')
+    setCpReceipt(null)
   }
   function backCp() {
-    setCpSelRef(null)
-    setCpPaid(false)
+    recordPayment.reset()
+    setCpSelId(null)
+    setCpReceipt(null)
   }
   function recordCp() {
-    if (!cpSelRef) return
-    const method = cpMethod
-    setAgentBookings((prev) => prev.map((b) => (b.orderRef === cpSelRef ? { ...b, paid: true, method } : b)))
-    setCpPaid(true)
+    if (cpSelId === null || recordPayment.isPending) return
+    recordPayment.mutate(
+      { orderId: cpSelId, method: cpMethod },
+      {
+        onSuccess: (saved) => {
+          setCpReceipt(saved)
+          setToast(`Payment recorded · ${saved.receiptNo}`)
+        },
+      },
+    )
   }
 
   return (
@@ -365,48 +433,73 @@ export function CounterPosScreen() {
           <h1 className="m-0 text-3xl font-heading tracking-title leading-tight text-ink-strong">Counter Bookings</h1>
           <p className="m-0 mt-1.5 text-sm text-ink-muted">Walk-in pooja bookings, and counter payments for app agent-code bookings.</p>
         </div>
-        <Button theme="default" variant="outline" size="md" onClick={openCp} iconLeft={<Icon name="hand-coins" size={16} />}>
-          Counter payments
-        </Button>
+        {canCollect && (
+          <Button theme="default" variant="outline" size="md" onClick={openCp} iconLeft={<Icon name="hand-coins" size={16} />}>
+            Counter payments
+          </Button>
+        )}
       </div>
 
-      <KpiBand summary={collectionSummary} />
+      <KpiBand summary={summaryQuery.data ?? null} isLoading={summaryQuery.isPending} />
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-7 pb-5.5 md:flex-row md:flex-nowrap md:overflow-hidden">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3.5 md:overflow-y-auto md:pb-1">
-          <PeoplePanel
-            people={people}
-            nakshatraOptions={NAKSHATRAS.map((n) => ({ value: n, label: n }))}
-            onNameChange={setPersonName}
-            onNakshatraChange={setPersonNakshatra}
-            onRemove={removePerson}
-            onAddPerson={addPerson}
-          />
-          <PoojaSearchPanel
-            search={search}
-            onSearchChange={setSearch}
-            browseOpen={browseOpen}
-            onToggleBrowse={() => setBrowseOpen((v) => !v)}
-            gods={activeGods}
-            browseGodId={browseGodId}
-            onSelectGod={(id) => setBrowseGodId((prev) => (prev === id ? null : id))}
-            results={results}
-            resultCount={matchedPoojas.length}
-            godNameOf={godNameOf}
-            onPick={openConfigForNew}
+      {catalogueError && (
+        <div className="flex-shrink-0 px-7 pb-3">
+          <Alert type="danger" title="Catalogue unavailable">
+            Poojas, gods or nakshatras could not be loaded, so a booking cannot be taken right now. Check the connection and reload.
+          </Alert>
+        </div>
+      )}
+
+      {overOccurrenceCap && (
+        <div className="flex-shrink-0 px-7 pb-3">
+          <Alert type="warning" title="Too many poojas for one sale">
+            This booking is {countOccurrences(booking)} poojas; the limit is {MAX_OCCURRENCES_PER_SALE} per receipt. Split it across two sales.
+          </Alert>
+        </div>
+      )}
+
+      {isCatalogueLoading ? (
+        <div className="flex min-h-0 flex-1 items-center justify-center gap-2.5 text-sm text-ink-subtle">
+          <Spinner size={20} />
+          Loading catalogue…
+        </div>
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-7 pb-5.5 md:flex-row md:flex-nowrap md:overflow-hidden">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3.5 md:overflow-y-auto md:pb-1">
+            <PeoplePanel
+              people={people}
+              nakshatraOptions={nakshatrams.map((n) => ({ value: String(n.id), label: n.name }))}
+              onNameChange={setPersonName}
+              onNakshatraChange={setPersonNakshatram}
+              onRemove={removePerson}
+              onAddPerson={addPerson}
+            />
+            <PoojaSearchPanel
+              search={search}
+              onSearchChange={setSearch}
+              browseOpen={browseOpen}
+              onToggleBrowse={() => setBrowseOpen((v) => !v)}
+              gods={activeGods}
+              browseGodId={browseGodId}
+              onSelectGod={(id) => setBrowseGodId((prev) => (prev === id ? null : id))}
+              results={results}
+              resultCount={matchedPoojas.length}
+              godNameOf={godNameOf}
+              onPick={openConfigForNew}
+            />
+          </div>
+
+          <BookingPanel
+            lines={bookingLines}
+            orderTotal={orderTotal}
+            orderPoojaCount={orderPoojaCount}
+            paymentBlocked={paymentBlocked || overOccurrenceCap || !canSell}
+            onEditLine={openConfigForEdit}
+            onRemoveLine={removeLine}
+            onTakePayment={openPay}
           />
         </div>
-
-        <BookingPanel
-          lines={bookingLines}
-          orderTotal={orderTotal}
-          orderPoojaCount={orderPoojaCount}
-          paymentBlocked={paymentBlocked}
-          onEditLine={openConfigForEdit}
-          onRemoveLine={removeLine}
-          onTakePayment={openPay}
-        />
-      </div>
+      )}
 
       <PoojaConfigModal
         open={!!config}
@@ -418,6 +511,7 @@ export function CounterPosScreen() {
         selectedPersonIds={config?.selectedIds ?? new Set<string>()}
         onTogglePerson={toggleConfigPerson}
         dates={config?.dates ?? []}
+        allowedDates={config?.allowedDates}
         onToggleDate={toggleConfigDate}
         calYear={config?.calYear ?? new Date().getFullYear()}
         calMonth={config?.calMonth ?? new Date().getMonth()}
@@ -429,7 +523,16 @@ export function CounterPosScreen() {
         onSave={saveConfig}
       />
 
-      <TakePaymentModal open={payOpen} total={orderTotal} method={payMethod} onSelectMethod={setPayMethod} onClose={closePay} onConfirm={confirmPayment} />
+      <TakePaymentModal
+        open={payOpen}
+        total={orderTotal}
+        method={payMethod}
+        onSelectMethod={setPayMethod}
+        onClose={closePay}
+        onConfirm={confirmPayment}
+        isSubmitting={createSale.isPending}
+        errorMessage={saleErrorMessage}
+      />
 
       <Receipt open={receiptOpen} pages={receiptPages} closeLabel="New booking" onClose={closeReceipt} onPrint={printReceipt} />
 
@@ -440,6 +543,7 @@ export function CounterPosScreen() {
         onSearchChange={setCpSearch}
         rows={cpRows}
         selected={cpSelected}
+        receipt={cpReceipt}
         method={cpMethod}
         onSelectMethod={setCpMethod}
         onSelectRow={selectCpRow}
@@ -452,7 +556,12 @@ export function CounterPosScreen() {
         onDone={closeCp}
         onPrint={printReceipt}
         templeName={TEMPLE_NAME}
+        isLoading={agentBookingsQuery.isPending}
+        isRecording={recordPayment.isPending}
+        errorMessage={cpErrorMessage}
       />
+
+      <CounterToast message={toast} />
     </div>
   )
 }

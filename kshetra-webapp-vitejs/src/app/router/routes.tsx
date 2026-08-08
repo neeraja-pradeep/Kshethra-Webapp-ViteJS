@@ -1,6 +1,8 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 
 import { AdminLayout } from '@/app/layout/AdminLayout'
+import { ProtectedRoute } from '@/app/router/ProtectedRoute'
+import { PERMISSIONS } from '@/features/auth/application/hooks/permissions'
 import { AgentCodesScreen } from '@/features/agent-codes/presentation/screens/AgentCodesScreen'
 import { AuthScreen } from '@/features/auth/presentation/screens/AuthScreen'
 import { BookingsScreen } from '@/features/bookings/presentation/screens/BookingsScreen'
@@ -26,11 +28,22 @@ import { ComingSoon } from '@/shared/ui/ComingSoon'
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <AdminLayout />,
+    element: (
+      <ProtectedRoute>
+        <AdminLayout />
+      </ProtectedRoute>
+    ),
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: 'dashboard', element: <DashboardScreen /> },
-      { path: 'counter', element: <CounterPosScreen /> },
+      {
+        path: 'counter',
+        element: (
+          <ProtectedRoute requires={PERMISSIONS.operateCounter}>
+            <CounterPosScreen />
+          </ProtectedRoute>
+        ),
+      },
       { path: 'pooja-bookings', element: <BookingsScreen /> },
       { path: 'pooja-orders', element: <OrdersScreen /> },
       { path: 'store', element: <Navigate to="/store/orders" replace /> },
@@ -48,5 +61,9 @@ export const router = createBrowserRouter([
     ],
   },
   { path: '/login', element: <AuthScreen /> },
+  {
+    path: '/no-access',
+    element: <ComingSoon title="You don't have access" desc="Ask a temple administrator to grant you this permission, then sign in again." />,
+  },
   { path: '*', element: <ComingSoon title="Page not found" desc="The page you are looking for does not exist." /> },
 ])

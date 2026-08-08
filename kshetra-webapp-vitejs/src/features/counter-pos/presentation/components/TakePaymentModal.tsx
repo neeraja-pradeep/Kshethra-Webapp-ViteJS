@@ -1,8 +1,7 @@
 import { formatINR } from '@/shared/lib/format'
-import { Button, Icon } from '@/shared/ui'
+import { Alert, Button, Icon } from '@/shared/ui'
 
-import type { PaymentMethod } from '@/features/counter-pos/domain/entities/payment'
-import { PAYMENT_METHODS } from '@/features/counter-pos/presentation/data/payment-methods.mock'
+import { PAYMENT_METHODS, type PaymentMethod } from '@/features/counter-pos/domain/entities/payment'
 import { MethodTile } from './MethodTile'
 
 export interface TakePaymentModalProps {
@@ -12,10 +11,21 @@ export interface TakePaymentModalProps {
   onSelectMethod: (method: PaymentMethod) => void
   onClose: () => void
   onConfirm: () => void
+  isSubmitting: boolean
+  errorMessage: string
 }
 
 /** Checkout dialog: amount due as an overline caption over a large maroon figure, then method tiles. */
-export function TakePaymentModal({ open, total, method, onSelectMethod, onClose, onConfirm }: TakePaymentModalProps) {
+export function TakePaymentModal({
+  open,
+  total,
+  method,
+  onSelectMethod,
+  onClose,
+  onConfirm,
+  isSubmitting,
+  errorMessage,
+}: TakePaymentModalProps) {
   if (!open) return null
 
   return (
@@ -36,6 +46,7 @@ export function TakePaymentModal({ open, total, method, onSelectMethod, onClose,
           <span className="text-2xs font-semibold uppercase tracking-overline text-ink-subtle">Amount due</span>
           <span className="text-4xl font-bold tabular-nums text-primary">{formatINR(total)}</span>
         </div>
+        <p className="m-0 px-5.5 pb-1 text-2xs text-ink-subtle">Priced from the catalogue — the receipt shows the temple's recorded total.</p>
 
         <div className="grid grid-cols-2 gap-2.5 px-5.5 pb-1.5 pt-3">
           {PAYMENT_METHODS.map((m) => (
@@ -43,12 +54,20 @@ export function TakePaymentModal({ open, total, method, onSelectMethod, onClose,
           ))}
         </div>
 
+        {errorMessage && (
+          <div className="px-5.5 pt-3">
+            <Alert type="danger">{errorMessage}</Alert>
+          </div>
+        )}
+
         <div className="flex justify-end gap-2 px-5.5 pb-4.5 pt-4">
-          <Button theme="default" variant="outline" onClick={onClose}>
+          <Button theme="default" variant="outline" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button theme="primary" onClick={onConfirm} iconLeft={<Icon name="check" size={16} />}>
-            Confirm &amp; print receipt
+          {/* Disabled while in flight: a second click is a second sale, and the
+              only way to undo one is to void it and ring it up again. */}
+          <Button theme="primary" onClick={onConfirm} disabled={isSubmitting} iconLeft={<Icon name="check" size={16} />}>
+            {isSubmitting ? 'Recording sale…' : 'Confirm & print receipt'}
           </Button>
         </div>
       </div>

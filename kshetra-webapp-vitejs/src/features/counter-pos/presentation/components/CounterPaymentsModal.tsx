@@ -1,6 +1,7 @@
 import { Icon } from '@/shared/ui'
 
 import type { AgentBooking } from '@/features/counter-pos/domain/entities/agent-booking'
+import type { CounterReceipt } from '@/features/counter-pos/domain/entities/counter-receipt'
 import type { PaymentMethod } from '@/features/counter-pos/domain/entities/payment'
 import { CounterPaymentsDetail } from './CounterPaymentsDetail'
 import { CounterPaymentsList } from './CounterPaymentsList'
@@ -15,9 +16,14 @@ export interface CounterPaymentsModalProps {
   onSearchChange: (value: string) => void
   rows: readonly AgentBooking[]
   selected: AgentBooking | null
+  /** Set once the payment has been recorded — drives the receipt view. */
+  receipt: CounterReceipt | null
   method: PaymentMethod
   onSelectMethod: (method: PaymentMethod) => void
-  onSelectRow: (orderRef: string) => void
+  onSelectRow: (orderId: number) => void
+  isLoading: boolean
+  isRecording: boolean
+  errorMessage: string
   onBack: () => void
   onClose: () => void
   onViewBooking: () => void
@@ -46,7 +52,11 @@ export function CounterPaymentsModal({
   onSearchChange,
   rows,
   selected,
+  receipt,
   method,
+  isLoading,
+  isRecording,
+  errorMessage,
   onSelectMethod,
   onSelectRow,
   onBack,
@@ -93,11 +103,30 @@ export function CounterPaymentsModal({
           </button>
         </div>
 
-        {mode === 'list' && <CounterPaymentsList search={search} onSearchChange={onSearchChange} rows={rows} onSelect={onSelectRow} />}
-        {mode === 'detail' && selected && (
-          <CounterPaymentsDetail booking={selected} method={method} onSelectMethod={onSelectMethod} onViewBooking={onViewBooking} onRecord={onRecord} />
+        {mode === 'list' && (
+          <CounterPaymentsList
+            search={search}
+            onSearchChange={onSearchChange}
+            rows={rows}
+            isLoading={isLoading}
+            errorMessage={errorMessage}
+            onSelect={onSelectRow}
+          />
         )}
-        {mode === 'receipt' && selected && <CounterPaymentsReceipt booking={selected} templeName={templeName} onDone={onDone} onPrint={onPrint} />}
+        {mode === 'detail' && selected && (
+          <CounterPaymentsDetail
+            booking={selected}
+            method={method}
+            onSelectMethod={onSelectMethod}
+            onViewBooking={onViewBooking}
+            onRecord={onRecord}
+            isRecording={isRecording}
+            errorMessage={errorMessage}
+          />
+        )}
+        {mode === 'receipt' && selected && receipt && (
+          <CounterPaymentsReceipt booking={selected} receipt={receipt} templeName={templeName} onDone={onDone} onPrint={onPrint} />
+        )}
       </div>
     </div>
   )

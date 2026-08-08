@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { toFailure } from '@/core/error/result'
+
 import type {
   AuthFlow,
   AuthStage,
@@ -9,6 +11,7 @@ import type {
   RequestCodeContext,
   SetPasswordContext,
 } from '@/features/auth/domain/entities/auth-stage'
+import { useSignInMutation } from '@/features/auth/application/queries/useSignInMutation'
 import type { PasswordRequirement } from '@/features/auth/domain/entities/password-requirement'
 import { AuthBrandPanel } from '@/features/auth/presentation/components/AuthBrandPanel'
 import { AuthCompactBrand } from '@/features/auth/presentation/components/AuthCompactBrand'
@@ -19,11 +22,15 @@ import { OtpVerifyForm } from '@/features/auth/presentation/components/OtpVerify
 import { RequestCodeForm } from '@/features/auth/presentation/components/RequestCodeForm'
 import { SetPasswordForm } from '@/features/auth/presentation/components/SetPasswordForm'
 
-/** Fake credential that deliberately fails, so the error state is reachable without a backend. */
-const MOCK_WRONG_PASSWORD = 'wrong'
+/**
+ * Fake credentials for the stages that still have no admin-side backend
+ * endpoint (OTP sign-in, password reset, first-time activation), so their
+ * error states stay reachable. Password login is real — see `handlePrimary`.
+ */
 const MOCK_WRONG_IDENTIFIER = 'wrong'
 const MOCK_WRONG_OTP = '000000'
 const OTP_RESEND_SECONDS = 30
+const SIGN_IN_FALLBACK_ERROR = 'Incorrect email or password.'
 
 /** Masks an email/phone the way the server would when confirming where a code went. */
 function maskTarget(identifier: string): string {
@@ -41,12 +48,15 @@ function maskTarget(identifier: string): string {
 /**
  * Standalone Kshetra Admin sign-in surface — a full-viewport two-panel layout
  * (brand panel + form card) covering password login, OTP verification,
- * password-reset request, and set-new-password, each with mock loading /
- * error / success behaviour. Not part of the AdminLayout shell.
+ * password-reset request, and set-new-password. Password login talks to
+ * `auth/admin-signin/`; the remaining stages are still mock-driven because no
+ * admin-side endpoint backs them yet. Not part of the AdminLayout shell.
  */
 export function AuthScreen() {
   const navigate = useNavigate()
+  const signInMutation = useSignInMutation()
 
+  const [signInError, setSignInError] = useState('')
   const [stage, setStage] = useState<AuthStage>('login')
   const [requestContext, setRequestContext] = useState<RequestCodeContext>('signin')
   const [otpContext, setOtpContext] = useState<OtpContext>('login')
@@ -102,6 +112,7 @@ export function AuthScreen() {
 
   function goToLogin() {
     clearStatusTimers()
+    setSignInError('')
     setStage('login')
     setFlow('password')
     setStatus('idle')
@@ -136,6 +147,7 @@ export function AuthScreen() {
   }
 
   function clearErrorOnEdit() {
+    setSignInError('')
     setStatus((s) => (s === 'error' ? 'idle' : s))
   }
 
@@ -160,10 +172,21 @@ export function AuthScreen() {
     clearTimeout(primaryTimeout.current)
 
     if (stage === 'login') {
-      primaryTimeout.current = setTimeout(() => {
-        if (password.trim().toLowerCase() === MOCK_WRONG_PASSWORD) setStatus('error')
-        else setStatus('success')
-      }, 1150)
+      signInMutation.mutate(
+        { username: identifier, password },
+        {
+          onSuccess: () => {
+            setSignInError('')
+            setStatus('success')
+          },
+          onError: (error) => {
+            // The server distinguishes bad credentials from "this account may
+            // not use the back office"; both are worth showing verbatim.
+            setSignInError(toFailure(error)?.message ?? SIGN_IN_FALLBACK_ERROR)
+            setStatus('error')
+          },
+        },
+      )
       return
     }
 
@@ -312,7 +335,7 @@ export function AuthScreen() {
                         setPassword(v)
                         clearErrorOnEdit()
                       }}
-                      passwordError={status === 'error' ? 'Incorrect email or password.' : ''}
+                      passwordError={status === 'error' ? signInError || SIGN_IN_FALLBACK_ERROR : ''}
                       showPassword={showPassword}
                       onToggleShowPassword={() => setShowPassword((v) => !v)}
                       remember={remember}

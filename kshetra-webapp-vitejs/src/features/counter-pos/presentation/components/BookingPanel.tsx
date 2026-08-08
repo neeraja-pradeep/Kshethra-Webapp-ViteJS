@@ -2,12 +2,12 @@ import { formatINR } from '@/shared/lib/format'
 import { Button, Icon } from '@/shared/ui'
 
 import type { BookingLine } from '@/features/counter-pos/domain/entities/booking'
-import type { TransactionPerson } from '@/features/counter-pos/domain/entities/transaction'
+import type { ReceiptPerson } from '@/features/counter-pos/domain/entities/counter-receipt'
 import { BookingLineCard } from './BookingLineCard'
 
 export interface BookingPanelLine {
   readonly line: BookingLine
-  readonly people: readonly TransactionPerson[]
+  readonly people: readonly ReceiptPerson[]
 }
 
 export interface BookingPanelProps {

@@ -11,12 +11,12 @@ export interface PoojaSearchPanelProps {
   browseOpen: boolean
   onToggleBrowse: () => void
   gods: readonly God[]
-  browseGodId: string | null
-  onSelectGod: (id: string) => void
+  browseGodId: number | null
+  onSelectGod: (id: number) => void
   results: readonly Pooja[]
   /** Total matches before the display list is capped — may exceed `results.length`. */
   resultCount: number
-  godNameOf: (godId: string) => string
+  godNameOf: (godId: number | undefined) => string
   onPick: (pooja: Pooja) => void
 }
 
@@ -89,7 +89,7 @@ export function PoojaSearchPanel({
           >
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium text-ink-strong">{p.name}</div>
-              <div className="text-xs text-ink-subtle">{godNameOf(p.godIds[0] ?? '')}</div>
+              <div className="text-xs text-ink-subtle">{godNameOf(p.godIds[0])}</div>
             </div>
             <span className="flex-shrink-0 text-sm font-bold tabular-nums text-ink-strong">{formatINR(p.offlinePrice)}</span>
             <span className="flex h-6.5 w-6.5 flex-shrink-0 items-center justify-center rounded-md bg-primary-subtle text-primary">

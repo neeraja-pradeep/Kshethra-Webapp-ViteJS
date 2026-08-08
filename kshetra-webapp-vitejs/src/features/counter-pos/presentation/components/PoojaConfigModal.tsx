@@ -16,6 +16,8 @@ export interface PoojaConfigModalProps {
   selectedPersonIds: ReadonlySet<string>
   onTogglePerson: (id: string) => void
   dates: readonly string[]
+  /** Set for a special pooja: the only dates the server will accept. */
+  allowedDates?: readonly string[]
   onToggleDate: (iso: string) => void
   calYear: number
   calMonth: number
@@ -38,6 +40,7 @@ export function PoojaConfigModal({
   selectedPersonIds,
   onTogglePerson,
   dates,
+  allowedDates,
   onToggleDate,
   calYear,
   calMonth,
@@ -130,7 +133,15 @@ export function PoojaConfigModal({
               <span className="text-sm font-medium text-ink">On which dates?</span>
               <span className="text-2xs text-ink-subtle">Click days to select multiple</span>
             </div>
-            <MonthCalendar year={calYear} month={calMonth} selectedDates={dates} onToggleDate={onToggleDate} onPrevMonth={onPrevMonth} onNextMonth={onNextMonth} />
+            <MonthCalendar
+              year={calYear}
+              month={calMonth}
+              selectedDates={dates}
+              allowedDates={allowedDates}
+              onToggleDate={onToggleDate}
+              onPrevMonth={onPrevMonth}
+              onNextMonth={onNextMonth}
+            />
             {dates.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {dates

@@ -1,9 +1,9 @@
 import { formatINR } from '@/shared/lib/format'
-import { Button, Icon } from '@/shared/ui'
+import { Alert, Button, Icon } from '@/shared/ui'
 
 import type { AgentBooking } from '@/features/counter-pos/domain/entities/agent-booking'
-import type { PaymentMethod } from '@/features/counter-pos/domain/entities/payment'
-import { PAYMENT_METHODS } from '@/features/counter-pos/presentation/data/payment-methods.mock'
+import { PAYMENT_METHODS, type PaymentMethod } from '@/features/counter-pos/domain/entities/payment'
+import { formatDateFull } from '@/features/counter-pos/presentation/lib/date'
 import { MethodTile } from './MethodTile'
 
 export interface CounterPaymentsDetailProps {
@@ -12,10 +12,20 @@ export interface CounterPaymentsDetailProps {
   onSelectMethod: (method: PaymentMethod) => void
   onViewBooking: () => void
   onRecord: () => void
+  isRecording: boolean
+  errorMessage: string
 }
 
 /** Selected app-agent booking: summary, payment method picker, and record action. */
-export function CounterPaymentsDetail({ booking, method, onSelectMethod, onViewBooking, onRecord }: CounterPaymentsDetailProps) {
+export function CounterPaymentsDetail({
+  booking,
+  method,
+  onSelectMethod,
+  onViewBooking,
+  onRecord,
+  isRecording,
+  errorMessage,
+}: CounterPaymentsDetailProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5.5 py-4.5">
       <div className="flex flex-wrap gap-x-5 gap-y-4 rounded-lg bg-active px-4 py-3.5">
@@ -43,7 +53,7 @@ export function CounterPaymentsDetail({ booking, method, onSelectMethod, onViewB
           <span className="text-xl font-bold tabular-nums text-ink-strong">{formatINR(booking.amount)}</span>
         </div>
         <span className="text-xs text-ink-subtle">
-          {booking.poojaCount} poojas · first date {booking.date}
+          {booking.poojaCount} poojas{booking.firstPoojaDate ? ` · first date ${formatDateFull(booking.firstPoojaDate)}` : ''}
         </span>
       </div>
 
@@ -56,13 +66,15 @@ export function CounterPaymentsDetail({ booking, method, onSelectMethod, onViewB
         </div>
       </div>
 
+      {errorMessage && <Alert type="danger">{errorMessage}</Alert>}
+
       <div className="flex flex-wrap items-center gap-2">
         <Button theme="default" variant="outline" onClick={onViewBooking} iconLeft={<Icon name="arrow-square-out" size={15} />}>
           View in Pooja Bookings
         </Button>
         <div className="flex-1" />
-        <Button theme="primary" onClick={onRecord} iconLeft={<Icon name="check" size={16} />}>
-          Record payment &amp; print
+        <Button theme="primary" onClick={onRecord} disabled={isRecording} iconLeft={<Icon name="check" size={16} />}>
+          {isRecording ? 'Recording…' : 'Record payment & print'}
         </Button>
       </div>
     </div>

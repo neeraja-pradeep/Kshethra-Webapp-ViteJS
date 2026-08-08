@@ -1,3 +1,4 @@
+import { PERMISSIONS } from '@/features/auth/application/hooks/permissions'
 import type { UserRole } from '@/shared/types/common'
 
 /** A single leaf navigation destination. */
@@ -7,7 +8,13 @@ export interface NavLeaf {
   icon: string
   path: string
   desc: string
+  /** Display vocabulary only — never gate on this. */
   roles: UserRole[]
+  /**
+   * RBAC codenames the signed-in user must ALL hold for this entry to render.
+   * Empty means "any signed-in console user".
+   */
+  permissions?: readonly string[]
 }
 
 /** A top-level nav entry: either a leaf (has `path`) or an expandable group. */
@@ -17,6 +24,7 @@ export interface NavItem {
   icon: string
   desc: string
   roles: UserRole[]
+  permissions?: readonly string[]
   /** Set for a direct destination. */
   path?: string
   /** Set for an expandable group. */
@@ -26,15 +34,19 @@ export interface NavItem {
 }
 
 /**
- * Sidebar navigation model — mirrors the design's NAV. `roles` are kept for the
- * future role-based access pass; the prototype renders the Administrator view.
+ * Sidebar navigation model — mirrors the design's NAV.
+ *
+ * `roles` is display vocabulary left over from the design. Gating reads
+ * `permissions` (RBAC codenames from the server) — a counter operator's base
+ * role is still `temple_user`, so role names would hide the console from
+ * exactly the people who were granted it.
  */
 export const NAV: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: 'squares-four', path: '/dashboard', desc: 'Operational snapshot.', roles: ['Admin', 'Manager'], group: 0 },
+  { id: 'dashboard', label: 'Dashboard', icon: 'squares-four', path: '/dashboard', desc: 'Operational snapshot.', roles: ['Admin', 'Manager'], permissions: [PERMISSIONS.viewAdminDashboard], group: 0 },
 
-  { id: 'counter', label: 'Counter Bookings', icon: 'receipt', path: '/counter', desc: 'Walk-in counter sales and receipts.', roles: ['Admin', 'Manager', 'Counter staff'], group: 1 },
+  { id: 'counter', label: 'Counter Bookings', icon: 'receipt', path: '/counter', desc: 'Walk-in counter sales and receipts.', roles: ['Admin', 'Manager', 'Counter staff'], permissions: [PERMISSIONS.operateCounter], group: 1 },
   { id: 'pooja-bookings', label: 'Pooja Bookings', icon: 'calendar-check', path: '/pooja-bookings', desc: 'Execution view — poojas to perform, by date.', roles: ['Admin', 'Manager'], group: 1 },
-  { id: 'pooja-orders', label: 'Pooja Orders', icon: 'currency-inr', path: '/pooja-orders', desc: 'Transaction view — orders, payments, refunds.', roles: ['Admin', 'Manager'], group: 1 },
+  { id: 'pooja-orders', label: 'Pooja Orders', icon: 'currency-inr', path: '/pooja-orders', desc: 'Transaction view — orders, payments, refunds.', roles: ['Admin', 'Manager'], permissions: [PERMISSIONS.managePoojaOrders], group: 1 },
   {
     id: 'store', label: 'Store', icon: 'shopping-bag', desc: 'Orders, products, categories, and inventory.', roles: ['Admin', 'Manager', 'Store staff'], group: 1,
     children: [
@@ -56,12 +68,12 @@ export const NAV: NavItem[] = [
     id: 'app', label: 'App', icon: 'device-mobile', desc: 'The devotee app — accounts, messaging, media.', roles: ['Admin', 'Manager'], group: 3,
     children: [
       { id: 'devotees', label: 'Devotees', icon: 'users-three', path: '/devotees', desc: 'App user accounts and booking history.', roles: ['Admin', 'Manager'] },
-      { id: 'notifications', label: 'Notifications', icon: 'megaphone', path: '/notifications', desc: 'Broadcast messages to app users.', roles: ['Admin', 'Manager'] },
+      { id: 'notifications', label: 'Notifications', icon: 'megaphone', path: '/notifications', desc: 'Broadcast messages to app users.', roles: ['Admin', 'Manager'], permissions: [PERMISSIONS.manageNotifications] },
       { id: 'media', label: 'Media', icon: 'music-notes', path: '/media', desc: 'Audio tracks and cover art for the app.', roles: ['Admin', 'Manager'] },
     ],
   },
 
   { id: 'agent-code', label: 'Agent code', icon: 'identification-badge', path: '/agent-codes', desc: 'Booking-agent codes and attribution.', roles: ['Admin', 'Manager'], group: 4 },
   { id: 'reports', label: 'Reports', icon: 'chart-bar', path: '/reports', desc: 'Financial reconciliation and reports.', roles: ['Admin', 'Manager'], group: 4 },
-  { id: 'users-roles', label: 'Users & Roles', icon: 'users-three', path: '/users-roles', desc: 'Employee and login registry.', roles: ['Admin'], group: 4 },
+  { id: 'users-roles', label: 'Users & Roles', icon: 'users-three', path: '/users-roles', desc: 'Employee and login registry.', roles: ['Admin'], permissions: [PERMISSIONS.manageRoles], group: 4 },
 ]

@@ -1,5 +1,6 @@
+import type { CounterReceipt, CounterReceiptItem } from '@/features/counter-pos/domain/entities/counter-receipt'
+import { receiptDevotees } from '@/features/counter-pos/domain/entities/counter-receipt'
 import type { PaymentMethod } from '@/features/counter-pos/domain/entities/payment'
-import type { Transaction, TransactionItem } from '@/features/counter-pos/domain/entities/transaction'
 import { formatDateFull } from './date'
 
 export interface ReceiptRow {
@@ -25,37 +26,62 @@ export interface ReceiptPage {
   readonly temple: string
 }
 
-/** Groups a transaction's items by god and expands each into per-person, per-date rows. */
-export function buildReceiptPages(txn: Transaction, templeName: string): readonly ReceiptPage[] {
-  const byGod: Record<string, TransactionItem[]> = {}
-  const godOrder: string[] = []
-  txn.items.forEach((it) => {
-    const god = it.god || 'Temple'
-    const existing = byGod[god]
-    if (existing) existing.push(it)
-    else {
-      byGod[god] = [it]
-      godOrder.push(god)
-    }
-  })
+/** "22 Jul 2026 · 11:32 am" from the receipt's server timestamp. */
+function formatStamp(isoDateTime: string): string {
+  const stamp = new Date(isoDateTime)
+  if (Number.isNaN(stamp.getTime())) return isoDateTime
+  const date = stamp.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+  const time = stamp.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }).toLowerCase()
+  return `${date} · ${time}`
+}
 
-  const seq = txn.rcp.replace(/\D/g, '') || '1'
-  const [day, mon, year] = txn.date.split(' ')
-  const invoiceNo = `${year ?? ''}/${mon ?? ''}${String(day ?? '').padStart(2, '0')}/${seq}`
+function invoiceNumberFor(receipt: CounterReceipt): string {
+  const seq = receipt.receiptNo.replace(/\D/g, '') || String(receipt.id)
+  const stamp = new Date(receipt.createdAt)
+  if (Number.isNaN(stamp.getTime())) return seq
+  const month = stamp.toLocaleDateString('en-IN', { month: 'short' })
+  return `${stamp.getFullYear()}/${month}${String(stamp.getDate()).padStart(2, '0')}/${seq}`
+}
 
-  return godOrder.map((god, gi) => {
+/**
+ * Groups a receipt's items by god and expands each into per-person, per-date
+ * rows for printing.
+ *
+ * Page totals come from each item's server-computed `amount`, not from
+ * multiplying the rows out: `amount` already excludes cancelled occurrences,
+ * so on a partly-voided receipt the two would disagree and the server is right.
+ */
+export function buildReceiptPages(receipt: CounterReceipt, templeName: string): readonly ReceiptPage[] {
+  const byGod = new Map<string, CounterReceiptItem[]>()
+  for (const item of receipt.items) {
+    const god = item.god || 'Temple'
+    const existing = byGod.get(god)
+    if (existing) existing.push(item)
+    else byGod.set(god, [item])
+  }
+
+  const fallbackPeople = receiptDevotees(receipt)
+  const invoiceNo = invoiceNumberFor(receipt)
+  const gods = [...byGod.keys()]
+
+  return gods.map((god, index) => {
+    const items = byGod.get(god) ?? []
     const rows: ReceiptRow[] = []
-    let total = 0
-    const remarksList: string[] = []
+    const remarks: string[] = []
 
-    for (const it of byGod[god] ?? []) {
-      const people = it.people && it.people.length > 0 ? it.people : txn.devotees.slice(0, it.peopleCount || 1)
-      const per = it.base != null ? it.base : it.count ? Math.round(it.amount / it.count) : it.amount
-      if (it.remarks) remarksList.push(it.remarks)
-      for (const d of it.dates) {
-        for (const p of people) {
-          total += per
-          rows.push({ sl: rows.length + 1, name: p.name, nakshatra: p.nakshatra || '—', pooja: it.name, date: formatDateFull(d), amount: per })
+    for (const item of items) {
+      const people = item.people.length > 0 ? item.people : fallbackPeople.slice(0, item.peopleCount || 1)
+      if (item.remarks) remarks.push(item.remarks)
+      for (const date of item.dates) {
+        for (const person of people) {
+          rows.push({
+            sl: rows.length + 1,
+            name: person.name,
+            nakshatra: person.nakshatram || '—',
+            pooja: item.name,
+            date: formatDateFull(date),
+            amount: item.base,
+          })
         }
       }
     }
@@ -63,13 +89,15 @@ export function buildReceiptPages(txn: Transaction, templeName: string): readonl
     return {
       god,
       rows,
-      total,
-      remarks: remarksList.join(' · '),
-      pageLabel: `${gi + 1} of ${godOrder.length}`,
+      total: items.reduce((sum, item) => sum + item.amount, 0),
+      remarks: remarks.join(' · '),
+      pageLabel: `${index + 1} of ${gods.length}`,
       invoiceNo,
-      dateTime: `${txn.date} · ${txn.time}`,
-      counter: txn.staff,
-      method: txn.method,
+      dateTime: formatStamp(receipt.createdAt),
+      // `staff_name` is the staff member's full name, falling back to their
+      // email — both can be blank, and a receipt must not print an empty till.
+      counter: receipt.staffName || 'Counter',
+      method: receipt.paymentMethod,
       temple: templeName,
     }
   })

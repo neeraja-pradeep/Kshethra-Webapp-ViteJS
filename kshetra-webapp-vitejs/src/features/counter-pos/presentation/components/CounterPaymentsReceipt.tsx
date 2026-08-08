@@ -2,16 +2,20 @@ import { formatINR } from '@/shared/lib/format'
 import { Button, Icon } from '@/shared/ui'
 
 import type { AgentBooking } from '@/features/counter-pos/domain/entities/agent-booking'
+import type { CounterReceipt } from '@/features/counter-pos/domain/entities/counter-receipt'
+import { paymentMethodLabel } from '@/features/counter-pos/domain/entities/payment'
 
 export interface CounterPaymentsReceiptProps {
   booking: AgentBooking
+  /** The receipt the server created — its number and total are authoritative. */
+  receipt: CounterReceipt
   templeName: string
   onDone: () => void
   onPrint: () => void
 }
 
 /** Compact thermal-style receipt printed once a counter payment has been recorded. */
-export function CounterPaymentsReceipt({ booking, templeName, onDone, onPrint }: CounterPaymentsReceiptProps) {
+export function CounterPaymentsReceipt({ booking, receipt, templeName, onDone, onPrint }: CounterPaymentsReceiptProps) {
   return (
     <div className="ks-print-region flex min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto px-5.5 py-4.5">
       <div className="flex w-[330px] flex-col rounded-xl bg-card px-6 py-5.5 shadow-xs print:shadow-none">
@@ -21,6 +25,7 @@ export function CounterPaymentsReceipt({ booking, templeName, onDone, onPrint }:
           </span>
           <div className="mt-2 text-lg font-bold text-ink-strong">{templeName}</div>
           <div className="mt-0.5 text-xs text-ink-subtle">Counter payment receipt</div>
+          <div className="mt-1 text-sm font-semibold tabular-nums text-ink-strong">{receipt.receiptNo}</div>
         </div>
 
         <div className="flex justify-between gap-3 border-b border-dashed border-stroke-strong py-2.75 text-sm">
@@ -43,9 +48,11 @@ export function CounterPaymentsReceipt({ booking, templeName, onDone, onPrint }:
 
         <div className="flex items-baseline justify-between pb-1 pt-3">
           <span className="text-base font-semibold text-ink-strong">Total paid</span>
-          <span className="text-2xl font-bold tabular-nums text-ink-strong">{formatINR(booking.amount)}</span>
+          <span className="text-2xl font-bold tabular-nums text-ink-strong">{formatINR(receipt.total)}</span>
         </div>
-        <div className="pt-1.5 text-xs text-ink-muted">Paid by {booking.method ?? '—'} at counter</div>
+        <div className="pt-1.5 text-xs text-ink-muted">
+          Paid by {paymentMethodLabel(receipt.paymentMethod)} at counter · {receipt.staffName}
+        </div>
 
         <div className="mt-3 text-center text-xs italic text-ink-subtle">Thank you · {'शुभमस्तु'}</div>
       </div>
