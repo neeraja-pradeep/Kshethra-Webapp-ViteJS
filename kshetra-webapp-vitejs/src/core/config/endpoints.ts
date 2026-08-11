@@ -16,6 +16,17 @@ export const AUTH_ENDPOINTS = {
 
 export const RBAC_ENDPOINTS = {
   myPermissions: '/rbac/me/permissions/',
+  permissions: '/rbac/permissions/',
+  roles: '/rbac/roles/',
+  role: (id: number) => `/rbac/roles/${id}/`,
+  roleUsers: (id: number) => `/rbac/roles/${id}/users/`,
+  assignRole: (id: number) => `/rbac/roles/${id}/assign/`,
+  unassignRole: (id: number) => `/rbac/roles/${id}/unassign/`,
+  users: '/rbac/users/',
+  user: (id: number) => `/rbac/users/${id}/`,
+  assignUserRoles: (id: number) => `/rbac/users/${id}/assign_roles/`,
+  removeUserRoles: (id: number) => `/rbac/users/${id}/remove_roles/`,
+  setUserRoles: (id: number) => `/rbac/users/${id}/set_roles/`,
 } as const
 
 export const COUNTER_ENDPOINTS = {

@@ -1,15 +1,25 @@
 import { Badge } from '@/shared/ui'
-import { findRole, roleBadgeColor } from '@/features/users-roles/presentation/utils/roles'
+import { baseRoleLabel, roleBadgeColor } from '@/features/users-roles/presentation/utils/roles'
 
 export interface RoleBadgeProps {
-  roleId: string
+  /** The role's permanent `name` — decides the colour. */
+  name: string
+  /** The display label. */
+  label: string
+  /** Base roles render neutral: they are a property of the account, not a grant. */
+  variant?: 'custom' | 'base'
 }
 
-/** Small pill showing a user's role label, coloured by the role's broad kind. */
-export function RoleBadge({ roleId }: RoleBadgeProps) {
+/** Small pill for one role. Colour is derived from the name, so it survives renames. */
+export function RoleBadge({ name, label, variant = 'custom' }: RoleBadgeProps) {
   return (
-    <Badge color={roleBadgeColor(roleId)} size="sm">
-      {findRole(roleId).label}
+    <Badge color={variant === 'base' ? 'gray' : roleBadgeColor(name)} size="sm">
+      {label}
     </Badge>
   )
+}
+
+/** The base-role pill, labelled from the server's `base_role` value. */
+export function BaseRoleBadge({ baseRole }: { baseRole: string }) {
+  return <RoleBadge name={baseRole} label={baseRoleLabel(baseRole)} variant="base" />
 }

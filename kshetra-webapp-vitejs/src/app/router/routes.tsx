@@ -1,8 +1,10 @@
+import type { ComponentType } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 
 import { AdminLayout } from '@/app/layout/AdminLayout'
+import { permissionsForPath } from '@/app/layout/nav'
+import { LandingRedirect } from '@/app/router/LandingRedirect'
 import { ProtectedRoute } from '@/app/router/ProtectedRoute'
-import { PERMISSIONS } from '@/features/auth/application/hooks/permissions'
 import { AgentCodesScreen } from '@/features/agent-codes/presentation/screens/AgentCodesScreen'
 import { AuthScreen } from '@/features/auth/presentation/screens/AuthScreen'
 import { BookingsScreen } from '@/features/bookings/presentation/screens/BookingsScreen'
@@ -25,6 +27,41 @@ import { ComingSoon } from '@/shared/ui/ComingSoon'
  * Application routes. The AdminLayout shell hosts every in-console module;
  * the auth screen is standalone (outside the shell).
  */
+
+/** Absolute path -> screen. Paths are absolute so they key straight into NAV. */
+const SHELL_SCREENS: ReadonlyArray<readonly [path: string, screen: ComponentType]> = [
+  ['/dashboard', DashboardScreen],
+  ['/counter', CounterPosScreen],
+  ['/pooja-bookings', BookingsScreen],
+  ['/pooja-orders', OrdersScreen],
+  ['/store/orders', StoreOrdersScreen],
+  ['/store/products', StoreProductsScreen],
+  ['/store/categories', StoreCategoriesScreen],
+  ['/poojas', PoojasScreen],
+  ['/gods', GodsScreen],
+  ['/devotees', DevoteesScreen],
+  ['/notifications', NotificationsScreen],
+  ['/media', MediaScreen],
+  ['/agent-codes', AgentCodesScreen],
+  ['/reports', ReportsScreen],
+  ['/users-roles', UsersRolesScreen],
+]
+
+/**
+ * Every module route carries the gate its sidebar entry already declares —
+ * read from NAV rather than restated here, so the two cannot drift. Hiding an
+ * entry from the rail while leaving its URL open renders the screen as if the
+ * user were entitled to it, which reads worse than a plain refusal.
+ */
+const shellRoutes = SHELL_SCREENS.map(([path, Screen]) => ({
+  path: path.slice(1),
+  element: (
+    <ProtectedRoute requires={permissionsForPath(path)}>
+      <Screen />
+    </ProtectedRoute>
+  ),
+}))
+
 export const router = createBrowserRouter([
   {
     path: '/',
@@ -34,30 +71,9 @@ export const router = createBrowserRouter([
       </ProtectedRoute>
     ),
     children: [
-      { index: true, element: <Navigate to="/dashboard" replace /> },
-      { path: 'dashboard', element: <DashboardScreen /> },
-      {
-        path: 'counter',
-        element: (
-          <ProtectedRoute requires={PERMISSIONS.operateCounter}>
-            <CounterPosScreen />
-          </ProtectedRoute>
-        ),
-      },
-      { path: 'pooja-bookings', element: <BookingsScreen /> },
-      { path: 'pooja-orders', element: <OrdersScreen /> },
+      { index: true, element: <LandingRedirect /> },
+      ...shellRoutes,
       { path: 'store', element: <Navigate to="/store/orders" replace /> },
-      { path: 'store/orders', element: <StoreOrdersScreen /> },
-      { path: 'store/products', element: <StoreProductsScreen /> },
-      { path: 'store/categories', element: <StoreCategoriesScreen /> },
-      { path: 'poojas', element: <PoojasScreen /> },
-      { path: 'gods', element: <GodsScreen /> },
-      { path: 'devotees', element: <DevoteesScreen /> },
-      { path: 'notifications', element: <NotificationsScreen /> },
-      { path: 'media', element: <MediaScreen /> },
-      { path: 'agent-codes', element: <AgentCodesScreen /> },
-      { path: 'reports', element: <ReportsScreen /> },
-      { path: 'users-roles', element: <UsersRolesScreen /> },
     ],
   },
   { path: '/login', element: <AuthScreen /> },

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 /**
- * Shared wire-shape helpers. The backend is not uniform about either money or
+ * Counter wire-shape helpers. The backend is not uniform about either money or
  * pagination, and both quirks are absorbed here rather than in every DTO.
  */
 
@@ -14,15 +14,9 @@ export const decimal = z
   .transform((value) => (typeof value === 'number' ? value : Number(value)))
   .refine((value) => Number.isFinite(value), { message: 'Expected a decimal value' })
 
-/** Standard DRF page: `{ count, next, previous, results }`. */
-export function paginated<T extends z.ZodTypeAny>(item: T) {
-  return z.object({
-    count: z.number(),
-    next: z.string().nullable(),
-    previous: z.string().nullable(),
-    results: z.array(item),
-  })
-}
+// `paginated` lives in core now that rbac needs it too — re-exported here so
+// this module stays the one wire import the counter DTOs reach for.
+export { paginated } from '@/core/api/wire'
 
 /**
  * `booking/poojas/` and `booking/poojacategory/` hand back the WHOLE filtered

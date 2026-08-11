@@ -1,31 +1,42 @@
 import type { BadgeColor } from '@/shared/ui'
-import type { God } from '@/features/users-roles/domain/entities/god'
-import type { Role, RoleKind } from '@/features/users-roles/domain/entities/role'
-import { ROLES } from '@/features/users-roles/presentation/data/roles.mock'
 
-/** Looks up a role by id, falling back to the first role (never throws). */
-export function findRole(roleId: string): Role {
-  return ROLES.find((r) => r.id === roleId) ?? ROLES[0]
+/**
+ * Role display helpers.
+ *
+ * Roles are server-defined and unbounded now, so nothing here can be a lookup
+ * into a fixed table: an admin can create "Front Desk" this afternoon and it
+ * must render correctly without a deploy.
+ */
+
+/** Palette for custom roles. `red` is reserved for destructive UI. */
+const ROLE_COLORS: readonly BadgeColor[] = ['blue', 'green', 'amber', 'maroon']
+
+/**
+ * A stable colour per role. Derived from the role's permanent `name` rather
+ * than assigned in sequence, so a role keeps its colour as others are created
+ * and deleted around it.
+ */
+export function roleBadgeColor(roleName: string): BadgeColor {
+  let hash = 0
+  for (let i = 0; i < roleName.length; i += 1) hash = (hash * 31 + roleName.charCodeAt(i)) % 997
+  return ROLE_COLORS[hash % ROLE_COLORS.length]
 }
 
-const KIND_COLOR: Record<RoleKind, BadgeColor> = {
-  admin: 'maroon',
-  manager: 'blue',
-  counter: 'green',
-  store: 'amber',
-  poojari: 'gray',
+/** The three fixed base roles, which decide which sign-in endpoint accepts a user. */
+const BASE_ROLE_LABELS: Readonly<Record<string, string>> = {
+  temple_user: 'Devotee',
+  temple_poojari: 'Poojari',
+  temple_admin: 'Temple Admin',
 }
 
-/** Badge colour for a role, keyed by its broad kind. */
-export function roleBadgeColor(roleId: string): BadgeColor {
-  return KIND_COLOR[findRole(roleId).kind]
-}
-
-/** Display name for a god id; title-cases the id itself if not found. */
-export function findGodName(gods: readonly God[], godId: string): string {
-  const g = gods.find((x) => x.id === godId)
-  if (g) return g.name
-  return godId ? godId.charAt(0).toUpperCase() + godId.slice(1) : ''
+/** Display name for a base role; title-cases anything unrecognised. */
+export function baseRoleLabel(baseRole: string): string {
+  const known = BASE_ROLE_LABELS[baseRole]
+  if (known) return known
+  return baseRole
+    .split('_')
+    .map((part) => (part ? part.charAt(0).toUpperCase() + part.slice(1) : part))
+    .join(' ')
 }
 
 /** Strips non-digits so phone numbers can be compared regardless of formatting. */

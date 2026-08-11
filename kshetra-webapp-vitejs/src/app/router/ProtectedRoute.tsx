@@ -8,15 +8,18 @@ import { useMyPermissionsQuery } from '@/features/auth/application/queries/useMy
 
 interface ProtectedRouteProps {
   children: ReactNode
-  /** Codename the route needs on top of being signed in. */
-  requires?: string
+  /**
+   * Codenames the route needs on top of being signed in — ALL must be held,
+   * matching the sidebar's rule. Empty means "any signed-in console user".
+   */
+  requires?: readonly string[]
 }
 
 /**
  * Gate for everything inside the console shell. The session query doubles as
  * the probe: it answers `401` when the cookie is missing or expired.
  */
-export function ProtectedRoute({ children, requires }: ProtectedRouteProps) {
+export function ProtectedRoute({ children, requires = [] }: ProtectedRouteProps) {
   const { data: session, isPending, isError, error } = useMyPermissionsQuery()
   const location = useLocation()
 
@@ -35,7 +38,8 @@ export function ProtectedRoute({ children, requires }: ProtectedRouteProps) {
     return <Navigate to="/login" replace state={{ from: location.pathname, reason: failure?.message }} />
   }
 
-  const isAllowed = !requires || session.isSuperuser || session.permissions.includes(requires)
+  // A superuser bypasses every check server-side; mirror that here.
+  const isAllowed = session.isSuperuser || requires.every((permission) => session.permissions.includes(permission))
   if (!isAllowed) return <Navigate to="/no-access" replace />
 
   return <>{children}</>
