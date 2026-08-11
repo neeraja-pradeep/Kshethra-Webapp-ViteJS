@@ -1,8 +1,23 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { Table, type SelectOption } from '@/shared/ui'
+import { toFailure } from '@/core/error/result'
+import { Alert, Icon, Spinner, Table, type SelectOption } from '@/shared/ui'
+
+import { PERMISSIONS } from '@/features/auth/application/hooks/permissions'
+import { useCan } from '@/features/auth/application/hooks/useCan'
+import {
+  useAssignPoojariMutation,
+  useCompleteBookingsMutation,
+} from '@/features/bookings/application/queries/useBookingMutations'
+import {
+  useBookingGodsQuery,
+  useBookingsQuery,
+  usePoojarisQuery,
+} from '@/features/bookings/application/queries/useBookingsQuery'
 import type { Booking } from '@/features/bookings/domain/entities/booking'
-import { BOOKINGS, PRIESTS } from '@/features/bookings/presentation/data/bookings.mock'
+import { isCompletable } from '@/features/bookings/domain/entities/booking'
+import type { BookingFilters } from '@/features/bookings/domain/repositories/booking.repository'
+import { UNASSIGNED_POOJARI } from '@/features/bookings/domain/repositories/booking.repository'
 import { BookingDetailDrawer } from '@/features/bookings/presentation/components/BookingDetailDrawer'
 import type { BookingDateMode } from '@/features/bookings/presentation/components/BookingDateFilter'
 import { BookingsBulkActionBar } from '@/features/bookings/presentation/components/BookingsBulkActionBar'
@@ -11,139 +26,176 @@ import { BookingsFilterBar } from '@/features/bookings/presentation/components/B
 import { BookingsKpiBand } from '@/features/bookings/presentation/components/BookingsKpiBand'
 import { BookingsPagination } from '@/features/bookings/presentation/components/BookingsPagination'
 import { ReassignPoojariModal } from '@/features/bookings/presentation/components/ReassignPoojariModal'
-import { buildBookingColumns, type BookingSortKey } from '@/features/bookings/presentation/lib/bookingTableColumns'
+import { BookingToast } from '@/features/bookings/presentation/components/BookingToast'
+import { buildBookingColumns, SORT_PARAM, type BookingSortKey } from '@/features/bookings/presentation/lib/bookingTableColumns'
 import { formatChipDate, todayISO } from '@/features/bookings/presentation/lib/date'
 
+const ALL = 'all'
+const PAGE_SIZES = [20, 50, 100]
+const DEFAULT_PAGE_SIZE = 20
+/** One request per pause in typing, not per keystroke. */
+const SEARCH_DEBOUNCE_MS = 300
+const TOAST_MS = 3200
+
 const SPECIAL_OPTIONS: SelectOption[] = [
-  { value: 'all', label: 'All types' },
+  { value: ALL, label: 'All types' },
   { value: 'special', label: 'Special poojas' },
-  { value: 'normal', label: 'Standard poojas' },
+  // The server's own value is `regular`; the design called it "Standard".
+  { value: 'regular', label: 'Standard poojas' },
 ]
 const CHANNEL_OPTIONS: SelectOption[] = [
-  { value: 'all', label: 'All channels' },
-  { value: 'Counter', label: 'Counter' },
-  { value: 'Mobile app', label: 'Mobile app' },
+  { value: ALL, label: 'All channels' },
+  { value: 'counter', label: 'Counter' },
+  { value: 'app', label: 'Mobile app' },
 ]
 const STATUS_OPTIONS: SelectOption[] = [
-  { value: 'all', label: 'All statuses' },
-  { value: 'Pending', label: 'Pending' },
-  { value: 'Completed', label: 'Completed' },
-  { value: 'Cancelled', label: 'Cancelled' },
+  { value: ALL, label: 'All statuses' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'cancelled', label: 'Cancelled' },
 ]
-const PAGE_SIZES = [20, 50, 100]
-
-// The seed data spans this range; defaulting the filter to it (rather than the
-// prototype's literal "today only") means the list shows every row on first
-// load instead of an empty day — see the final report for this deviation.
-const SEED_DATES = BOOKINGS.map((b) => b.poojaDate).sort()
-const DEFAULT_FROM = SEED_DATES[0] ?? todayISO()
-const DEFAULT_TO = SEED_DATES[SEED_DATES.length - 1] ?? todayISO()
 
 interface ReassignTarget {
-  readonly ids: readonly string[]
+  readonly ids: readonly number[]
   readonly contextLabel: string
-  readonly currentPriest: string | null
+  readonly currentPoojariId: number | null
 }
 
-/** Pooja Bookings — execution view. One row per person, per pooja date. */
+/**
+ * Pooja Bookings — the execution view. One row per person, per pooja date.
+ *
+ * Every filter, the sort and the paging are applied by the server, and the KPI
+ * tiles come from its `summary`, which counts the whole filtered set rather
+ * than the loaded page — so the numbers hold still while you page through.
+ */
 export function BookingsScreen() {
-  const [bookings, setBookings] = useState<Booking[]>(BOOKINGS)
+  const can = useCan()
+  const canComplete = can(PERMISSIONS.managePoojaOrders)
+  const canAssign = can(PERMISSIONS.assignPoojari)
 
   const [search, setSearch] = useState('')
-  const [dateMode, setDateMode] = useState<BookingDateMode>('range')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [dateMode, setDateMode] = useState<BookingDateMode>('all')
   const [singleDate, setSingleDate] = useState(todayISO())
-  const [rangeFrom, setRangeFrom] = useState(DEFAULT_FROM)
-  const [rangeTo, setRangeTo] = useState(DEFAULT_TO)
-  const [god, setGod] = useState('all')
-  const [special, setSpecial] = useState('all')
-  const [poojari, setPoojari] = useState('all')
-  const [channel, setChannel] = useState('all')
-  const [status, setStatus] = useState('all')
+  const [rangeFrom, setRangeFrom] = useState(todayISO())
+  const [rangeTo, setRangeTo] = useState(todayISO())
+  const [god, setGod] = useState(ALL)
+  const [poojaType, setPoojaType] = useState(ALL)
+  const [poojari, setPoojari] = useState(ALL)
+  const [channel, setChannel] = useState(ALL)
+  const [status, setStatus] = useState(ALL)
 
   const [sortKey, setSortKey] = useState<BookingSortKey | ''>('')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
-  const [page, setPage] = useState(0)
-  const [pageSize, setPageSize] = useState(20)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
 
-  const [selected, setSelected] = useState<Record<string, boolean>>({})
-  const [detailId, setDetailId] = useState<string | null>(null)
+  const [selected, setSelected] = useState<Record<number, boolean>>({})
+  const [detailId, setDetailId] = useState<number | null>(null)
   const [reassignTarget, setReassignTarget] = useState<ReassignTarget | null>(null)
-  const [reassignSelected, setReassignSelected] = useState<string | null>(null)
+  const [reassignSelectedId, setReassignSelectedId] = useState<number | null>(null)
+  const [toast, setToast] = useState<{ show: boolean; message: string }>({ show: false, message: '' })
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const godOptions = useMemo<SelectOption[]>(() => {
-    const names = Array.from(new Set(bookings.map((b) => b.godName))).sort((a, b) => a.localeCompare(b))
-    return [{ value: 'all', label: 'All gods' }, ...names.map((name) => ({ value: name, label: name }))]
-  }, [bookings])
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+  }, [search])
 
-  const poojariOptions = useMemo<SelectOption[]>(() => {
-    const names = Array.from(new Set(bookings.map((b) => b.poojari))).sort((a, b) => a.localeCompare(b))
-    return [{ value: 'all', label: 'All poojaris' }, ...names.map((name) => ({ value: name, label: name }))]
-  }, [bookings])
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current) }, [])
 
-  function resetPagingAndSelection() {
-    setPage(0)
+  function showToast(message: string) {
+    setToast({ show: true, message })
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast({ show: false, message: '' }), TOAST_MS)
+  }
+
+  const filters: BookingFilters = useMemo(() => {
+    const dateBounds =
+      dateMode === 'all'
+        ? {}
+        : dateMode === 'single'
+          ? { dateFrom: singleDate, dateTo: singleDate }
+          : { dateFrom: rangeFrom, dateTo: rangeTo }
+
+    return {
+      ...(debouncedSearch ? { search: debouncedSearch } : {}),
+      ...dateBounds,
+      ...(god === ALL ? {} : { god: Number(god) }),
+      ...(poojaType === ALL ? {} : { poojaType: poojaType as 'special' | 'regular' }),
+      ...(poojari === ALL
+        ? {}
+        : { poojari: poojari === UNASSIGNED_POOJARI ? UNASSIGNED_POOJARI : Number(poojari) }),
+      ...(channel === ALL ? {} : { channel: channel as 'counter' | 'app' }),
+      ...(status === ALL ? {} : { status: status as 'pending' | 'completed' | 'cancelled' }),
+      ...(sortKey ? { sort: `${sortDir === 'desc' ? '-' : ''}${SORT_PARAM[sortKey]}` } : {}),
+      page,
+      pageSize,
+    }
+  }, [debouncedSearch, dateMode, singleDate, rangeFrom, rangeTo, god, poojaType, poojari, channel, status, sortKey, sortDir, page, pageSize])
+
+  const bookingsQuery = useBookingsQuery(filters)
+  const poojarisQuery = usePoojarisQuery()
+  const godsQuery = useBookingGodsQuery()
+  const complete = useCompleteBookingsMutation()
+  const assign = useAssignPoojariMutation()
+
+  const rows = useMemo(() => bookingsQuery.data?.results ?? [], [bookingsQuery.data])
+  const summary = bookingsQuery.data?.summary ?? { total: 0, pending: 0, completed: 0, cancelled: 0 }
+  const total = bookingsQuery.data?.count ?? 0
+  const pageCount = Math.max(1, Math.ceil(total / pageSize))
+
+  const godOptions = useMemo<SelectOption[]>(
+    () => [
+      { value: ALL, label: 'All gods' },
+      ...(godsQuery.data ?? []).map((g) => ({ value: String(g.id), label: g.name })),
+    ],
+    [godsQuery.data],
+  )
+
+  const poojariOptions = useMemo<SelectOption[]>(
+    () => [
+      { value: ALL, label: 'All poojaris' },
+      // The server filters on exactly this — "who has nothing rostered" is the
+      // question this screen exists to answer.
+      { value: UNASSIGNED_POOJARI, label: 'Unassigned' },
+      ...(poojarisQuery.data ?? []).map((p) => ({ value: String(p.id), label: p.name })),
+    ],
+    [poojarisQuery.data],
+  )
+
+  /**
+   * Selection is per page. With server paging, a "select all" that reached rows
+   * the operator cannot see would act on records they never reviewed, so it
+   * covers this page only — and is dropped whenever the page or filters move.
+   */
+  const selectableRows = useMemo(() => rows.filter(isCompletable), [rows])
+  const selectedIds = useMemo(
+    () => selectableRows.filter((row) => selected[row.id]).map((row) => row.id),
+    [selectableRows, selected],
+  )
+  const allSelected = selectableRows.length > 0 && selectedIds.length === selectableRows.length
+  const someSelected = selectedIds.length > 0 && !allSelected
+
+  function resetPaging() {
+    setPage(1)
     setSelected({})
   }
 
-  const dateModeActive = dateMode === 'single' ? singleDate !== todayISO() : rangeFrom !== DEFAULT_FROM || rangeTo !== DEFAULT_TO
-  const filtersActive = !!search || god !== 'all' || status !== 'all' || poojari !== 'all' || channel !== 'all' || special !== 'all' || dateModeActive
-
-  const filteredRows = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    const rows = bookings.filter((b) => {
-      if (dateMode === 'single') {
-        if (singleDate && b.poojaDate !== singleDate) return false
-      } else {
-        if (rangeFrom && b.poojaDate < rangeFrom) return false
-        if (rangeTo && b.poojaDate > rangeTo) return false
-      }
-      if (god !== 'all' && b.godName !== god) return false
-      if (channel !== 'all' && b.channel !== channel) return false
-      if (status !== 'all' && b.status !== status) return false
-      if (poojari !== 'all' && b.poojari !== poojari) return false
-      if (special === 'special' && !b.special) return false
-      if (special === 'normal' && b.special) return false
-      if (q) {
-        const haystack = `${b.poojaName} ${b.orderRef} ${b.person} ${b.nakshatra} ${b.poojari} ${b.godName} ${b.counterStaff ?? ''} ${b.devoteeAccountName ?? ''}`.toLowerCase()
-        if (!haystack.includes(q)) return false
-      }
-      return true
-    })
-    if (sortKey) {
-      const dir = sortDir === 'desc' ? -1 : 1
-      rows.sort((a, b) => dir * String(a[sortKey]).localeCompare(String(b[sortKey]), undefined, { numeric: true }))
-    }
-    return rows
-  }, [bookings, search, dateMode, singleDate, rangeFrom, rangeTo, god, channel, status, poojari, special, sortKey, sortDir])
-
-  const total = filteredRows.length
-  const counts = { Pending: 0, Completed: 0, Cancelled: 0 }
-  filteredRows.forEach((r) => {
-    counts[r.status] += 1
-  })
-
-  const pageCount = Math.max(1, Math.ceil(total / pageSize))
-  const pageIndex = Math.min(page, pageCount - 1)
-  const pageRows = filteredRows.slice(pageIndex * pageSize, pageIndex * pageSize + pageSize)
-  const start = total ? pageIndex * pageSize + 1 : 0
-  const end = Math.min(total, (pageIndex + 1) * pageSize)
-
-  const allSelected = filteredRows.length > 0 && filteredRows.every((r) => selected[r.id])
-  const someSelected = !allSelected && filteredRows.some((r) => selected[r.id])
-  const selectedIds = Object.entries(selected).filter(([, v]) => v).map(([id]) => id)
+  const filtersActive =
+    !!debouncedSearch || god !== ALL || status !== ALL || poojari !== ALL || channel !== ALL || poojaType !== ALL || dateMode !== 'all'
 
   function handleClearFilters() {
     setSearch('')
-    setGod('all')
-    setSpecial('all')
-    setPoojari('all')
-    setChannel('all')
-    setStatus('all')
-    setDateMode('range')
-    setRangeFrom(DEFAULT_FROM)
-    setRangeTo(DEFAULT_TO)
-    resetPagingAndSelection()
+    setDebouncedSearch('')
+    setGod(ALL)
+    setPoojaType(ALL)
+    setPoojari(ALL)
+    setChannel(ALL)
+    setStatus(ALL)
+    setDateMode('all')
+    resetPaging()
   }
 
   function handleToggleSelectAll() {
@@ -151,61 +203,68 @@ export function BookingsScreen() {
       setSelected({})
       return
     }
-    const next: Record<string, boolean> = {}
-    filteredRows.forEach((r) => {
-      next[r.id] = true
+    const next: Record<number, boolean> = {}
+    selectableRows.forEach((row) => {
+      next[row.id] = true
     })
     setSelected(next)
   }
 
-  function handleToggleSelect(id: string) {
+  function handleToggleSelect(id: number) {
     setSelected((s) => ({ ...s, [id]: !s[id] }))
   }
 
   function handleSort(key: BookingSortKey) {
     setSortDir((dir) => (sortKey === key && dir === 'asc' ? 'desc' : 'asc'))
     setSortKey(key)
-    setPage(0)
+    resetPaging()
   }
 
-  function applyReassign(ids: readonly string[], priest: string) {
-    setBookings((rows) => rows.map((r) => (ids.includes(r.id) ? { ...r, poojari: priest } : r)))
+  const detailBooking = detailId === null ? null : rows.find((row) => row.id === detailId) ?? null
+  const busy = complete.isPending || assign.isPending
+
+  function failureMessage(error: unknown, fallback: string): string {
+    return toFailure(error)?.message ?? fallback
+  }
+
+  async function runComplete(ids: readonly number[], label: string) {
+    if (ids.length === 0) return
+    const done = await complete.mutateAsync(ids).catch(() => null)
+    if (!done) {
+      showToast(failureMessage(complete.error, 'Could not mark those bookings complete.'))
+      return
+    }
+    showToast(`${label} marked as completed`)
+    setSelected({})
+  }
+
+  function openReassign(ids: readonly number[], contextLabel: string, currentPoojariId: number | null) {
+    assign.reset()
+    setReassignTarget({ ids, contextLabel, currentPoojariId })
+    setReassignSelectedId(currentPoojariId)
   }
 
   function handleBulkReassign() {
     if (selectedIds.length === 0) return
-    const firstPriest = bookings.find((b) => b.id === selectedIds[0])?.poojari ?? PRIESTS[0]
-    setReassignTarget({
-      ids: selectedIds,
-      contextLabel: selectedIds.length === 1 ? '1 selected booking' : `${selectedIds.length} selected bookings`,
-      currentPriest: selectedIds.every((id) => bookings.find((b) => b.id === id)?.poojari === firstPriest) ? firstPriest : null,
-    })
-    setReassignSelected(firstPriest)
+    const poojariIds = new Set(selectableRows.filter((r) => selected[r.id]).map((r) => r.poojari?.id ?? null))
+    openReassign(
+      selectedIds,
+      selectedIds.length === 1 ? '1 selected booking' : `${selectedIds.length} selected bookings`,
+      poojariIds.size === 1 ? ([...poojariIds][0] ?? null) : null,
+    )
   }
 
-  function handleBulkComplete() {
-    if (selectedIds.length === 0) return
-    setBookings((rows) => rows.map((r) => (selectedIds.includes(r.id) && r.status === 'Pending' ? { ...r, status: 'Completed', statusTone: 'success' } : r)))
+  async function handleConfirmReassign() {
+    if (!reassignTarget || reassignSelectedId === null) return
+    const done = await assign
+      .mutateAsync({ bookingIds: reassignTarget.ids, poojariId: reassignSelectedId })
+      .catch(() => null)
+    if (!done) return
+    const name = poojarisQuery.data?.find((p) => p.id === reassignSelectedId)?.name ?? 'poojari'
+    showToast(`${done.length} ${done.length === 1 ? 'booking' : 'bookings'} assigned to ${name}`)
+    setReassignTarget(null)
+    setReassignSelectedId(null)
     setSelected({})
-  }
-
-  function handleRowClick(row: Booking) {
-    setDetailId(row.id)
-  }
-
-  const detailBooking = detailId ? bookings.find((b) => b.id === detailId) ?? null : null
-
-  function handleDetailMarkComplete() {
-    if (!detailId) return
-    setBookings((rows) => rows.map((r) => (r.id === detailId ? { ...r, status: 'Completed', statusTone: 'success' } : r)))
-  }
-
-  function handleDetailReassign() {
-    if (!detailId) return
-    const b = bookings.find((r) => r.id === detailId)
-    if (!b) return
-    setReassignTarget({ ids: [detailId], contextLabel: `${b.poojaName} · ${formatChipDate(b.poojaDate)}`, currentPriest: b.poojari })
-    setReassignSelected(b.poojari)
   }
 
   const columns = buildBookingColumns({
@@ -217,10 +276,11 @@ export function BookingsScreen() {
     onToggleSelectAll: handleToggleSelectAll,
     isSelected: (id) => !!selected[id],
     onToggleSelect: handleToggleSelect,
+    isSelectable: isCompletable,
   })
 
-  const emptyIcon = filtersActive ? 'magnifying-glass' : 'calendar-blank'
-  const emptyMessage = filtersActive ? 'No bookings match your filters.' : 'No poojas booked for this day.'
+  const loadFailure = bookingsQuery.isError ? failureMessage(bookingsQuery.error, 'Could not load bookings.') : null
+  const showBulkBar = selectedIds.length > 0 && (canComplete || canAssign)
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-sunken">
@@ -233,123 +293,167 @@ export function BookingsScreen() {
         search={search}
         onSearchChange={(v) => {
           setSearch(v)
-          resetPagingAndSelection()
+          resetPaging()
         }}
         dateMode={dateMode}
         onDateModeChange={(m) => {
           setDateMode(m)
-          resetPagingAndSelection()
+          resetPaging()
         }}
         singleDate={singleDate}
         onSingleDateChange={(iso) => {
           setSingleDate(iso)
-          resetPagingAndSelection()
+          resetPaging()
         }}
         rangeFrom={rangeFrom}
         rangeTo={rangeTo}
         onRangeChange={(from, to) => {
           setRangeFrom(from)
           setRangeTo(to)
-          resetPagingAndSelection()
+          resetPaging()
         }}
         godOptions={godOptions}
         god={god}
         onGodChange={(v) => {
           setGod(v)
-          resetPagingAndSelection()
+          resetPaging()
         }}
         specialOptions={SPECIAL_OPTIONS}
-        special={special}
+        special={poojaType}
         onSpecialChange={(v) => {
-          setSpecial(v)
-          resetPagingAndSelection()
+          setPoojaType(v)
+          resetPaging()
         }}
         poojariOptions={poojariOptions}
         poojari={poojari}
         onPoojariChange={(v) => {
           setPoojari(v)
-          resetPagingAndSelection()
+          resetPaging()
         }}
         channelOptions={CHANNEL_OPTIONS}
         channel={channel}
         onChannelChange={(v) => {
           setChannel(v)
-          resetPagingAndSelection()
+          resetPaging()
         }}
         statusOptions={STATUS_OPTIONS}
         status={status}
         onStatusChange={(v) => {
           setStatus(v)
-          resetPagingAndSelection()
+          resetPaging()
         }}
         resultLabel={`${total.toLocaleString('en-IN')} ${total === 1 ? 'booking' : 'bookings'}`}
       />
 
-      <BookingsKpiBand total={total} pending={counts.Pending} completed={counts.Completed} cancelled={counts.Cancelled} />
+      <BookingsKpiBand
+        total={summary.total}
+        pending={summary.pending}
+        completed={summary.completed}
+        cancelled={summary.cancelled}
+      />
 
-      {selectedIds.length > 0 && (
+      {loadFailure && (
+        <div className="mx-7 mb-3">
+          <Alert type="danger" icon={<Icon name="warning" size={16} />}>
+            {loadFailure}
+          </Alert>
+        </div>
+      )}
+
+      {showBulkBar && (
         <BookingsBulkActionBar
           selectedCount={selectedIds.length}
+          canComplete={canComplete}
+          canAssign={canAssign}
+          busy={busy}
           onReassign={handleBulkReassign}
-          onMarkComplete={handleBulkComplete}
+          onMarkComplete={() =>
+            runComplete(selectedIds, selectedIds.length === 1 ? '1 booking' : `${selectedIds.length} bookings`)
+          }
           onClear={() => setSelected({})}
         />
       )}
 
       <div className="mx-7 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-sm">
-        {total > 0 ? (
-          <div className="min-h-0 flex-1 overflow-auto">
-            <Table columns={columns} rows={pageRows} onRowClick={handleRowClick} />
+        {bookingsQuery.isPending ? (
+          <div className="flex min-h-60 flex-1 items-center justify-center">
+            <Spinner size={36} />
+          </div>
+        ) : rows.length > 0 ? (
+          // Dimmed, not replaced, while the next page loads — the operator keeps
+          // their place instead of watching the table blank on every keystroke.
+          <div className={`min-h-0 flex-1 overflow-auto transition-opacity ${bookingsQuery.isFetching ? 'opacity-60' : ''}`}>
+            <Table columns={columns} rows={rows as Booking[]} onRowClick={(row) => setDetailId(row.id)} />
           </div>
         ) : (
-          <BookingsEmptyState icon={emptyIcon} message={emptyMessage} filtersActive={filtersActive} onClearFilters={handleClearFilters} />
+          <BookingsEmptyState
+            icon={filtersActive ? 'magnifying-glass' : 'calendar-blank'}
+            message={loadFailure ? 'Bookings could not be loaded.' : filtersActive ? 'No bookings match your filters.' : 'No bookings yet.'}
+            filtersActive={filtersActive}
+            onClearFilters={handleClearFilters}
+          />
         )}
       </div>
 
       {total > 0 && (
         <BookingsPagination
-          start={start}
-          end={end}
+          start={(page - 1) * pageSize + 1}
+          end={Math.min(total, page * pageSize)}
           total={total}
-          page={pageIndex}
+          page={page - 1}
           pageCount={pageCount}
           pageSize={pageSize}
           onPageSizeChange={(size) => {
-            setPageSize(PAGE_SIZES.includes(size) ? size : 20)
-            setPage(0)
+            setPageSize(PAGE_SIZES.includes(size) ? size : DEFAULT_PAGE_SIZE)
+            resetPaging()
           }}
-          onPrev={() => setPage((p) => Math.max(0, p - 1))}
-          onNext={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+          onPrev={() => {
+            setPage((p) => Math.max(1, p - 1))
+            setSelected({})
+          }}
+          onNext={() => {
+            setPage((p) => Math.min(pageCount, p + 1))
+            setSelected({})
+          }}
         />
       )}
 
       {detailBooking && (
         <BookingDetailDrawer
           booking={detailBooking}
+          canComplete={canComplete}
+          canAssign={canAssign}
+          busy={busy}
           onClose={() => setDetailId(null)}
-          onMarkComplete={handleDetailMarkComplete}
-          onReassign={handleDetailReassign}
+          onMarkComplete={() => runComplete([detailBooking.id], detailBooking.pooja.name)}
+          onReassign={() =>
+            openReassign(
+              [detailBooking.id],
+              `${detailBooking.pooja.name} · ${detailBooking.poojaDate ? formatChipDate(detailBooking.poojaDate) : 'no date'}`,
+              detailBooking.poojari?.id ?? null,
+            )
+          }
         />
       )}
 
       <ReassignPoojariModal
         open={!!reassignTarget}
         contextLabel={reassignTarget?.contextLabel ?? ''}
-        priests={PRIESTS}
-        currentPriest={reassignTarget?.currentPriest ?? null}
-        selected={reassignSelected}
-        onSelect={setReassignSelected}
+        poojaris={poojarisQuery.data ?? []}
+        loading={poojarisQuery.isPending}
+        currentPoojariId={reassignTarget?.currentPoojariId ?? null}
+        selectedId={reassignSelectedId}
+        saving={assign.isPending}
+        error={assign.isError ? failureMessage(assign.error, 'Could not assign those bookings.') : null}
+        onSelect={setReassignSelectedId}
         onClose={() => {
           setReassignTarget(null)
-          setReassignSelected(null)
+          setReassignSelectedId(null)
         }}
-        onConfirm={() => {
-          if (reassignTarget && reassignSelected) applyReassign(reassignTarget.ids, reassignSelected)
-          setReassignTarget(null)
-          setReassignSelected(null)
-          setSelected({})
-        }}
+        onConfirm={handleConfirmReassign}
       />
+
+      <BookingToast show={toast.show} message={toast.message} />
     </div>
   )
 }

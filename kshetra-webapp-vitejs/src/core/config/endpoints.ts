@@ -32,3 +32,14 @@ export const CATALOGUE_ENDPOINTS = {
   poojaCategories: '/booking/poojacategory/',
   nakshatrams: '/user/nakshatrams/',
 } as const
+
+/**
+ * The back-office booking feed and the two actions on it. Mounted under
+ * `/admin/`, not `/booking/` — a different Django app from the counter.
+ */
+export const ADMIN_BOOKING_ENDPOINTS = {
+  bookings: '/admin/bookings/all/',
+  completeBookings: '/admin/bookings/complete/',
+  assignBookings: '/admin/bookings/assign/',
+  poojaris: '/admin/poojaris/',
+} as const

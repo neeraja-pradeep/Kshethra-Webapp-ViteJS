@@ -1,20 +1,43 @@
-import { Button, Icon, IconButton } from '@/shared/ui'
+import { Alert, Button, Icon, IconButton } from '@/shared/ui'
 import { formatINR } from '@/shared/lib/format'
 import type { Booking } from '@/features/bookings/domain/entities/booking'
+import { isCompletable, primaryGodName } from '@/features/bookings/domain/entities/booking'
 import { BookingStatusBadge } from '@/features/bookings/presentation/components/BookingStatusBadge'
 import { DetailRow } from '@/features/bookings/presentation/components/DetailRow'
+import {
+  bookedByLabel,
+  channelLabel,
+  paymentLabel,
+  paymentTone,
+  statusLabel,
+  statusTone,
+} from '@/features/bookings/presentation/lib/bookingDisplay'
 import { formatFullDate } from '@/features/bookings/presentation/lib/date'
 
 export interface BookingDetailDrawerProps {
   booking: Booking
+  /** `rbac.manage_pooja_orders` — recording that a pooja was performed. */
+  canComplete: boolean
+  /** `rbac.assign_poojari` — rostering, deliberately a separate permission. */
+  canAssign: boolean
+  busy: boolean
   onClose: () => void
   onMarkComplete: () => void
   onReassign: () => void
 }
 
 /** Right-side slide-over — read-first view of a single person's booking. */
-export function BookingDetailDrawer({ booking, onClose, onMarkComplete, onReassign }: BookingDetailDrawerProps) {
-  const actionable = booking.status === 'Pending'
+export function BookingDetailDrawer({
+  booking,
+  canComplete,
+  canAssign,
+  busy,
+  onClose,
+  onMarkComplete,
+  onReassign,
+}: BookingDetailDrawerProps) {
+  const completable = isCompletable(booking)
+  const showActions = (canComplete && completable) || canAssign
 
   return (
     <div className="fixed inset-y-0 right-0 z-drawer flex w-full flex-col bg-sunken shadow-xl sm:w-[560px]">
@@ -26,44 +49,64 @@ export function BookingDetailDrawer({ booking, onClose, onMarkComplete, onReassi
           <span className="text-xs font-semibold uppercase tracking-overline text-ink-subtle">Pooja Bookings</span>
           <span className="text-stroke-strong">/</span>
           <span className="truncate text-base font-semibold text-ink-strong">
-            {booking.poojaName} · {booking.person}
+            {booking.pooja.name} · {booking.person.name}
           </span>
         </div>
-        <BookingStatusBadge label={booking.status} tone={booking.statusTone} />
+        <BookingStatusBadge label={statusLabel(booking.status)} tone={statusTone(booking.status)} />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex max-w-[880px] flex-col gap-4 p-6 pb-14">
+          {booking.isOverdue && (
+            <Alert type="warning" icon={<Icon name="clock-countdown" size={16} />}>
+              Past its completion window. Nothing expires on its own — reassign it or record it as performed.
+            </Alert>
+          )}
+
           <div className="flex flex-col gap-3.25 rounded-2xl bg-card p-5 shadow-sm">
             <span className="text-2xs font-semibold uppercase tracking-overline text-ink-subtle">Booking</span>
-            <DetailRow label="Pooja">{booking.poojaName}</DetailRow>
-            <DetailRow label="God">{booking.godName}</DetailRow>
+            <DetailRow label="Pooja">{booking.pooja.name}</DetailRow>
+            <DetailRow label="God">{primaryGodName(booking) || '—'}</DetailRow>
             <DetailRow label="Pooja date">
-              <span className="tabular-nums">{formatFullDate(booking.poojaDate)}</span>
+              <span className="tabular-nums">{booking.poojaDate ? formatFullDate(booking.poojaDate) : '—'}</span>
             </DetailRow>
-            <DetailRow label="Person">{booking.person}</DetailRow>
-            <DetailRow label="Nakshatra">{booking.nakshatra || '—'}</DetailRow>
+            <DetailRow label="Person">{booking.person.name || '—'}</DetailRow>
+            <DetailRow label="Nakshatra">{booking.person.nakshatram || '—'}</DetailRow>
             <DetailRow label="Poojari">
               <span className="inline-flex items-center gap-1.5">
                 <Icon name="user-circle" size={15} color="var(--text-subtle)" />
-                {booking.poojari}
+                {booking.poojari?.name ?? <span className="text-ink-subtle">Unassigned</span>}
               </span>
             </DetailRow>
+            <DetailRow label="Booked via">
+              {channelLabel(booking.channel)} · {bookedByLabel(booking)}
+            </DetailRow>
+            {booking.remarks && <DetailRow label="Remarks">{booking.remarks}</DetailRow>}
             <DetailRow label="Amount">
-              <span className="tabular-nums">{formatINR(booking.amount)}</span>
+              <span className="tabular-nums">{formatINR(booking.price)}</span>
             </DetailRow>
           </div>
 
-          {actionable && (
+          {showActions && (
             <div className="flex flex-col gap-3.25 rounded-2xl bg-card p-5 shadow-sm">
               <span className="text-2xs font-semibold uppercase tracking-overline text-ink-subtle">Actions</span>
               <div className="flex flex-wrap gap-2.5">
-                <Button theme="primary" iconLeft={<Icon name="seal-check" size={16} />} onClick={onMarkComplete}>
-                  Mark as completed
-                </Button>
-                <Button theme="default" variant="outline" iconLeft={<Icon name="arrows-clockwise" size={16} />} onClick={onReassign}>
-                  Reassign poojari
-                </Button>
+                {canComplete && completable && (
+                  <Button theme="primary" disabled={busy} iconLeft={<Icon name="seal-check" size={16} />} onClick={onMarkComplete}>
+                    Mark as completed
+                  </Button>
+                )}
+                {canAssign && (
+                  <Button
+                    theme="default"
+                    variant="outline"
+                    disabled={busy}
+                    iconLeft={<Icon name="arrows-clockwise" size={16} />}
+                    onClick={onReassign}
+                  >
+                    {booking.poojari ? 'Reassign poojari' : 'Assign poojari'}
+                  </Button>
+                )}
               </div>
               <div className="flex items-center gap-1.75 text-xs text-ink-subtle">
                 <Icon name="clock-countdown" size={14} />A reassigned pooja must be completed within 24 hours.
@@ -76,23 +119,25 @@ export function BookingDetailDrawer({ booking, onClose, onMarkComplete, onReassi
             <div className="flex items-center justify-between gap-4">
               <span className="text-2xs font-semibold uppercase tracking-overline text-ink-subtle">Order</span>
               <span className="inline-flex items-center gap-1.25 text-sm font-semibold text-primary">
-                {booking.orderRef}
+                {booking.orderReference}
                 <Icon name="arrow-up-right" size={13} />
               </span>
             </div>
             <DetailRow label="Receipt">
-              <span className="tabular-nums">{booking.receiptRef}</span>
+              <span className="tabular-nums">{booking.order.receiptNo || '—'}</span>
             </DetailRow>
             <DetailRow label="Order total">
-              <span className="tabular-nums">{formatINR(booking.orderTotal)}</span>
+              <span className="tabular-nums">{formatINR(booking.order.total)}</span>
             </DetailRow>
             <div className="flex items-center justify-between gap-4">
               <span className="text-2xs font-semibold uppercase tracking-overline text-ink-subtle">Payment</span>
-              <BookingStatusBadge label={booking.paymentStatus} tone={booking.paymentTone} />
+              <BookingStatusBadge
+                label={paymentLabel(booking.order.paymentStatus)}
+                tone={paymentTone(booking.order.paymentStatus)}
+              />
             </div>
-            <div className="flex items-center gap-1.75 border-t border-stroke-subtle pt-2.75 text-xs text-ink-subtle">
-              <Icon name="info" size={14} />
-              Cancellation and refunds are managed on the parent order.
+            <div className="text-xs leading-snug text-ink-subtle">
+              The order total covers every booking on it — this page records only this one.
             </div>
           </div>
         </div>

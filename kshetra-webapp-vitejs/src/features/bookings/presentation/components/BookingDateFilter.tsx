@@ -4,7 +4,12 @@ import { Icon } from '@/shared/ui'
 import { cn } from '@/shared/lib/cn'
 import { addDays, buildMonthCells, formatChipDate, monthTitle, parseISO, todayISO, WEEKDAY_LETTERS } from '@/features/bookings/presentation/lib/date'
 
-export type BookingDateMode = 'single' | 'range'
+/**
+ * `all` sends no date bound at all, matching the server's own default of
+ * "every booking, earliest first". Without it the screen would have to invent
+ * a window on first load and silently hide everything outside it.
+ */
+export type BookingDateMode = 'single' | 'range' | 'all'
 
 export interface BookingDateFilterProps {
   mode: BookingDateMode
@@ -41,11 +46,13 @@ export function BookingDateFilter({ mode, onModeChange, singleDate, onSingleDate
 
   const today = todayISO()
   const chipLabel =
-    mode === 'single'
-      ? singleDate === today
-        ? `Today · ${formatChipDate(singleDate)}`
-        : formatChipDate(singleDate)
-      : `${formatChipDate(rangeFrom)} – ${formatChipDate(rangeTo)}`
+    mode === 'all'
+      ? 'All dates'
+      : mode === 'single'
+        ? singleDate === today
+          ? `Today · ${formatChipDate(singleDate)}`
+          : formatChipDate(singleDate)
+        : `${formatChipDate(rangeFrom)} – ${formatChipDate(rangeTo)}`
 
   function openPopover() {
     const ref = mode === 'range' ? rangeFrom || today : singleDate || today
@@ -86,8 +93,10 @@ export function BookingDateFilter({ mode, onModeChange, singleDate, onSingleDate
     setOpen(false)
   }
 
-  function applyPreset(preset: 'today' | 'next7' | 'month') {
-    if (preset === 'today') {
+  function applyPreset(preset: 'today' | 'next7' | 'month' | 'all') {
+    if (preset === 'all') {
+      onModeChange('all')
+    } else if (preset === 'today') {
       onModeChange('single')
       onSingleDateChange(today)
     } else if (preset === 'next7') {
@@ -106,6 +115,7 @@ export function BookingDateFilter({ mode, onModeChange, singleDate, onSingleDate
 
   const cells = buildMonthCells(view.y, view.m)
   const isRange = mode === 'range'
+  const showCalendar = mode !== 'all'
   const rangeStart = isRange ? pendingStart ?? rangeFrom : ''
   const rangeEnd = isRange ? (pendingStart ? '' : rangeTo) : ''
 
@@ -132,30 +142,24 @@ export function BookingDateFilter({ mode, onModeChange, singleDate, onSingleDate
             className="absolute left-0 top-9.5 z-menu flex w-[308px] max-w-full flex-col gap-2.75 rounded-2xl bg-card p-3.5 shadow-lg"
           >
             <div className="flex gap-1 rounded-lg bg-active p-0.75">
-              <button
-                type="button"
-                onClick={() => onModeChange('single')}
-                className={cn(
-                  'flex-1 rounded-md px-3 py-1.25 text-xs font-medium',
-                  !isRange ? 'bg-card text-ink-strong shadow-xs' : 'bg-transparent text-ink-muted',
-                )}
-              >
-                Day
-              </button>
-              <button
-                type="button"
-                onClick={() => onModeChange('range')}
-                className={cn(
-                  'flex-1 rounded-md px-3 py-1.25 text-xs font-medium',
-                  isRange ? 'bg-card text-ink-strong shadow-xs' : 'bg-transparent text-ink-muted',
-                )}
-              >
-                Range
-              </button>
+              {(['all', 'single', 'range'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => onModeChange(m)}
+                  className={cn(
+                    'flex-1 rounded-md px-3 py-1.25 text-xs font-medium',
+                    mode === m ? 'bg-card text-ink-strong shadow-xs' : 'bg-transparent text-ink-muted',
+                  )}
+                >
+                  {m === 'all' ? 'All' : m === 'single' ? 'Day' : 'Range'}
+                </button>
+              ))}
             </div>
 
             <div className="flex flex-wrap gap-1.5">
               {[
+                { label: 'All dates', preset: 'all' as const },
                 { label: 'Today', preset: 'today' as const },
                 { label: 'Next 7 days', preset: 'next7' as const },
                 { label: 'This month', preset: 'month' as const },
@@ -171,6 +175,7 @@ export function BookingDateFilter({ mode, onModeChange, singleDate, onSingleDate
               ))}
             </div>
 
+            {showCalendar && (
             <div className="flex items-center gap-2">
               <button type="button" aria-label="Previous month" onClick={() => navMonth(-1)} className="flex h-7 w-7 items-center justify-center rounded-md border-none bg-transparent text-ink-muted hover:bg-hover">
                 <Icon name="caret-left" size={14} />
@@ -180,7 +185,9 @@ export function BookingDateFilter({ mode, onModeChange, singleDate, onSingleDate
                 <Icon name="caret-right" size={14} />
               </button>
             </div>
+            )}
 
+            {showCalendar && (
             <div className="grid grid-cols-7 gap-0.5">
               {WEEKDAY_LETTERS.map((dw, i) => (
                 <span key={i} className="inline-flex h-5.5 items-center justify-center text-2xs font-semibold tracking-wide text-ink-subtle">
@@ -209,6 +216,13 @@ export function BookingDateFilter({ mode, onModeChange, singleDate, onSingleDate
                 )
               })}
             </div>
+            )}
+
+            {mode === 'all' && (
+              <p className="m-0 py-1 text-xs leading-snug text-ink-muted">
+                Showing every booking, earliest pooja date first.
+              </p>
+            )}
 
             {isRange && (
               <div className="flex items-center gap-1.5 text-2xs text-ink-subtle">

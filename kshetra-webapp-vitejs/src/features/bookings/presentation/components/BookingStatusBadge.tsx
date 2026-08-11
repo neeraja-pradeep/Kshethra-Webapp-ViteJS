@@ -1,5 +1,5 @@
 import { Badge, type BadgeColor } from '@/shared/ui'
-import type { StatusTone } from '@/features/bookings/domain/entities/booking'
+import type { StatusTone } from '@/features/bookings/presentation/lib/bookingDisplay'
 
 const COLOR_BY_TONE: Record<StatusTone, BadgeColor> = {
   success: 'green',

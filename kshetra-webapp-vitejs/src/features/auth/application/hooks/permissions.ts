@@ -9,4 +9,10 @@ export const PERMISSIONS = {
   viewAdminDashboard: 'rbac.view_admin_dashboard',
   manageNotifications: 'rbac.manage_notifications',
   manageRoles: 'rbac.manage_roles',
+  /**
+   * Rostering, kept separate from `managePoojaOrders` on purpose: a duty
+   * manager can be allowed to move work between poojaris without being given
+   * the rest of the back office.
+   */
+  assignPoojari: 'rbac.assign_poojari',
 } as const
