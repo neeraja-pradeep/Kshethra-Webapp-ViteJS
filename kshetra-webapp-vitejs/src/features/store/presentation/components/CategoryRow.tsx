@@ -3,13 +3,15 @@ import type { DragEvent } from 'react'
 import { cn } from '@/shared/lib/cn'
 import { Icon, Switch } from '@/shared/ui'
 
-import type { Category } from '@/features/store/domain/entities/category'
+import { categoryStatusLabel, type Category } from '@/features/store/domain/entities/category'
 
 export interface CategoryRowProps {
   category: Category
-  productCount: number
   isDragSource: boolean
   isDragOver: boolean
+  /** Dragging is locked while a reorder is in flight — see the screen. */
+  disabled: boolean
+  canEdit: boolean
   onDragStart: () => void
   onDragOver: (e: DragEvent<HTMLDivElement>) => void
   onDrop: () => void
@@ -19,10 +21,24 @@ export interface CategoryRowProps {
 }
 
 /** One draggable, reorderable row in the categories list. */
-export function CategoryRow({ category, productCount, isDragSource, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, onToggleStatus, onEdit }: CategoryRowProps) {
+export function CategoryRow({
+  category,
+  isDragSource,
+  isDragOver,
+  disabled,
+  canEdit,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+  onToggleStatus,
+  onEdit,
+}: CategoryRowProps) {
+  const active = category.status === 'active'
+
   return (
     <div
-      draggable
+      draggable={canEdit && !disabled}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDrop={onDrop}
@@ -32,21 +48,47 @@ export function CategoryRow({ category, productCount, isDragSource, isDragOver, 
         isDragOver && !isDragSource ? 'bg-active' : isDragSource ? 'bg-hover' : 'bg-transparent',
       )}
     >
-      <span className="inline-flex w-5.5 flex-shrink-0 cursor-grab items-center justify-center text-ink-disabled" title="Drag to reorder">
+      <span
+        className={cn(
+          'inline-flex w-5.5 flex-shrink-0 items-center justify-center text-ink-disabled',
+          canEdit && !disabled ? 'cursor-grab' : 'cursor-not-allowed opacity-50',
+        )}
+        title={canEdit ? 'Drag to reorder' : 'You cannot reorder categories'}
+      >
         <Icon name="dots-six-vertical" size={17} />
       </span>
+
       <div className="flex min-w-0 flex-1 items-center gap-2.5">
-        <span className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-primary-subtle text-primary-subtle-text">
-          <Icon name="tag" size={15} />
-        </span>
-        <span className="truncate whitespace-nowrap text-sm font-medium text-ink-strong">{category.name}</span>
+        {category.mediaUrl ? (
+          <span
+            className="h-8 w-8 flex-shrink-0 rounded-md bg-cover bg-center shadow-xs"
+            style={{ backgroundImage: `url(${category.mediaUrl})` }}
+            role="presentation"
+          />
+        ) : (
+          <span className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-primary-subtle text-primary-subtle-text">
+            <Icon name="tag" size={15} />
+          </span>
+        )}
+        <span className="min-w-0 truncate whitespace-nowrap text-sm font-medium text-ink-strong">{category.name}</span>
+        {/* The prefix every SKU in this category is issued under. */}
+        {category.skuPrefix && (
+          <span className="flex-shrink-0 rounded bg-sunken px-1.5 py-0.5 font-mono text-2xs text-ink-subtle">
+            {category.skuPrefix}
+          </span>
+        )}
       </div>
-      <span className="w-24 flex-shrink-0 text-right tabular-nums text-sm text-ink">{productCount}</span>
+
+      <span className="w-24 flex-shrink-0 text-right tabular-nums text-sm text-ink">{category.productCount}</span>
       <span className="w-[90px] flex-shrink-0 text-center tabular-nums text-sm text-ink-muted">{category.sortOrder}</span>
+
       <span className="flex w-28 flex-shrink-0 items-center gap-2" onClick={(e) => e.stopPropagation()}>
-        <Switch checked={category.status === 'Active'} size="sm" onChange={onToggleStatus} />
-        <span className={cn('text-xs', category.status === 'Active' ? 'text-success' : 'text-ink-subtle')}>{category.status}</span>
+        <Switch checked={active} size="sm" disabled={!canEdit} onChange={onToggleStatus} />
+        <span className={cn('text-xs', active ? 'text-success' : 'text-ink-subtle')}>
+          {categoryStatusLabel(category.status)}
+        </span>
       </span>
+
       <span className="flex w-9 flex-shrink-0 justify-end">
         <button
           type="button"
