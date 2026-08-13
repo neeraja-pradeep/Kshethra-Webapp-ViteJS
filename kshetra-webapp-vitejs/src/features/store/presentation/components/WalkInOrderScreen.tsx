@@ -1,85 +1,152 @@
 import { useEffect, useMemo, useState } from 'react'
 
-import { formatINR } from '@/shared/lib/format'
+import { toFailure } from '@/core/error/result'
 import { cn } from '@/shared/lib/cn'
-import { Icon } from '@/shared/ui'
+import { formatINR } from '@/shared/lib/format'
+import { Alert, Icon, Spinner } from '@/shared/ui'
 
-import type { Category } from '@/features/store/domain/entities/category'
-import type { Order, WalkInCartLine } from '@/features/store/domain/entities/order'
-import type { Product } from '@/features/store/domain/entities/product'
-import { categoryName, findProduct } from '@/features/store/presentation/lib/storeFormat'
+import { useCategoriesQuery } from '@/features/store/application/queries/useCategoriesQuery'
+import { useProductsQuery } from '@/features/store/application/queries/useProductsQuery'
+import { useCreateWalkInSaleMutation } from '@/features/store/application/queries/useStoreOrderMutations'
+import type { ProductRow } from '@/features/store/domain/entities/product'
+import type { StoreOrderDetail, WalkInPaymentMethod } from '@/features/store/domain/entities/store-order'
+import type { StockShortfall } from '@/features/store/domain/repositories/storeOrder.repository'
+import { readShortfalls } from '@/features/store/infrastructure/repositories/storeOrder.repository.impl'
 
 import { DetailTopBar } from './DetailTopBar'
 import { WalkInPaymentModal } from './WalkInPaymentModal'
-import { WalkInReceiptModal } from './WalkInReceiptModal'
+
+const SEARCH_DEBOUNCE_MS = 300
+/** The picker is a grid to tap, not a list to page — one generous page covers it. */
+const PICKER_PAGE_SIZE = 60
 
 export interface WalkInOrderScreenProps {
-  products: readonly Product[]
-  categories: readonly Category[]
-  templeName: string
   onClose: () => void
-  onConfirm: (cart: WalkInCartLine[], name: string, phone: string, method: string) => Order
-  onPrintReceipt: (order: Order) => void
+  /** Opens the receipt for the order that was just taken. */
+  onSold: (order: StoreOrderDetail) => void
 }
 
-/** Over-the-counter POS: search/browse products, build a cart, take payment, print a receipt. */
-export function WalkInOrderScreen({ products, categories, templeName, onClose, onConfirm, onPrintReceipt }: WalkInOrderScreenProps) {
+/** A cart line is keyed by **variant** — that is what is actually sold. */
+interface CartLine {
+  readonly variantId: number
+  readonly name: string
+  readonly sku: string
+  readonly price: number
+  /** What the catalogue said when it was added; the server is still the authority. */
+  readonly stock: number
+  readonly quantity: number
+}
+
+/**
+ * Over-the-counter POS: browse the catalogue, build a cart, take payment.
+ *
+ * The old screen never consulted stock and would happily sell an out-of-stock
+ * line any number of times. Quantities are now capped at what the catalogue
+ * shows — and, because that figure can be stale and the server counts live app
+ * reservations out, a refusal comes back naming each short line.
+ */
+export function WalkInOrderScreen({ onClose, onSold }: WalkInOrderScreenProps) {
   const [search, setSearch] = useState('')
-  const [browseCat, setBrowseCat] = useState<string | null>(null)
-  const [cart, setCart] = useState<WalkInCartLine[]>([])
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [browseCat, setBrowseCat] = useState<number | null>(null)
+  const [cart, setCart] = useState<readonly CartLine[]>([])
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [payOpen, setPayOpen] = useState(false)
-  const [receiptOrder, setReceiptOrder] = useState<Order | null>(null)
 
-  const activeProducts = useMemo(() => products.filter((p) => p.status === 'Active'), [products])
-  const activeCategories = useMemo(() => categories.filter((c) => c.status === 'Active'), [categories])
+  const createSale = useCreateWalkInSaleMutation()
 
-  const results = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    let res = activeProducts
-    if (browseCat) res = res.filter((p) => p.categoryId === browseCat)
-    if (q) res = res.filter((p) => `${p.name} ${p.id} ${categoryName(categories, p.categoryId)}`.toLowerCase().includes(q))
-    return res.slice().sort((a, b) => a.name.localeCompare(b.name)).slice(0, 60)
-  }, [activeProducts, browseCat, search, categories])
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+  }, [search])
 
-  const addToCart = (productId: string) =>
-    setCart((c) => {
-      const ex = c.find((l) => l.productId === productId)
-      if (ex) return c.map((l) => (l.productId === productId ? { ...l, quantity: l.quantity + 1 } : l))
-      return c.concat([{ productId, quantity: 1 }])
+  const productsQuery = useProductsQuery(
+    useMemo(
+      () => ({
+        status: 'active' as const,
+        ...(debouncedSearch ? { search: debouncedSearch } : {}),
+        ...(browseCat ? { category: browseCat } : {}),
+        page: 1,
+        pageSize: PICKER_PAGE_SIZE,
+      }),
+      [debouncedSearch, browseCat],
+    ),
+  )
+  const categoriesQuery = useCategoriesQuery()
+
+  const results = productsQuery.data?.results ?? []
+  const activeCategories = (categoriesQuery.data ?? []).filter((c) => c.status === 'active')
+
+  const failure = toFailure(createSale.error)
+  const shortfalls = readShortfalls(failure)
+  const shortfallByVariant = new Map(shortfalls.map((s) => [s.productVariant, s]))
+
+  const total = cart.reduce((sum, line) => sum + line.price * line.quantity, 0)
+  const cartCount = cart.reduce((sum, line) => sum + line.quantity, 0)
+
+  /** One line per variant — listing the same one twice is refused, so quantities combine. */
+  function addToCart(product: ProductRow) {
+    if (product.variantId == null) return
+    const variantId = product.variantId
+    setCart((current) => {
+      const existing = current.find((line) => line.variantId === variantId)
+      if (existing) {
+        return current.map((line) =>
+          line.variantId === variantId
+            ? { ...line, quantity: Math.min(line.stock, line.quantity + 1) }
+            : line,
+        )
+      }
+      return [
+        ...current,
+        {
+          variantId,
+          name: product.name,
+          sku: product.sku ?? '',
+          price: product.price ?? 0,
+          stock: product.stockQuantity,
+          quantity: 1,
+        },
+      ]
     })
-  const inc = (productId: string) => setCart((c) => c.map((l) => (l.productId === productId ? { ...l, quantity: l.quantity + 1 } : l)))
-  const dec = (productId: string) => setCart((c) => c.map((l) => (l.productId === productId ? { ...l, quantity: Math.max(1, l.quantity - 1) } : l)))
-  const remove = (productId: string) => setCart((c) => c.filter((l) => l.productId !== productId))
-
-  const total = cart.reduce((sum, l) => sum + (findProduct(products, l.productId)?.price ?? 0) * l.quantity, 0)
-  const cartCount = cart.reduce((sum, l) => sum + l.quantity, 0)
-
-  const handleConfirm = (method: string) => {
-    const created = onConfirm(cart, name.trim(), phone.trim(), method)
-    setReceiptOrder(created)
-    setCart([])
-    setPayOpen(false)
-  }
-  const handleNewSale = () => {
-    setReceiptOrder(null)
-    setCart([])
-    setSearch('')
-    setBrowseCat(null)
-    setName('')
-    setPhone('')
-  }
-  const handleDone = () => {
-    setReceiptOrder(null)
-    onClose()
   }
 
-  // Escape closes the topmost layer: the receipt has no dismiss gesture, the payment modal
-  // handles itself, otherwise this screen backs out.
+  const setQuantity = (variantId: number, next: number) =>
+    setCart((c) =>
+      c.map((line) =>
+        line.variantId === variantId
+          ? { ...line, quantity: Math.max(1, Math.min(line.stock, next)) }
+          : line,
+      ),
+    )
+  const remove = (variantId: number) => setCart((c) => c.filter((line) => line.variantId !== variantId))
+
+  function handleConfirm(method: WalkInPaymentMethod) {
+    createSale.mutate(
+      {
+        ...(name.trim() ? { customerName: name.trim() } : {}),
+        ...(phone.trim() ? { customerPhone: phone.trim() } : {}),
+        paymentMethod: method,
+        items: cart.map((line) => ({ productVariant: line.variantId, quantity: line.quantity })),
+      },
+      {
+        onSuccess: (order) => {
+          setPayOpen(false)
+          setCart([])
+          setName('')
+          setPhone('')
+          onSold(order)
+        },
+        // On failure the modal stays open and the cart is untouched — the sale
+        // was one transaction, so nothing was written and nothing is lost.
+      },
+    )
+  }
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || receiptOrder || payOpen) return
+      if (e.key !== 'Escape' || payOpen) return
       onClose()
     }
     document.addEventListener('keydown', handler)
@@ -100,7 +167,7 @@ export function WalkInOrderScreen({ products, categories, templeName, onClose, o
         }
       />
 
-      <div className="flex min-h-0 flex-1 gap-4 p-4 pt-4">
+      <div className="flex min-h-0 flex-1 gap-4 p-4">
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-sm">
           <div className="flex-shrink-0 border-b border-stroke-subtle px-4 pb-3 pt-3.5">
             <div className="flex h-10 items-center gap-2 rounded-lg bg-card px-2.5 shadow-xs">
@@ -110,7 +177,7 @@ export function WalkInOrderScreen({ products, categories, templeName, onClose, o
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search name, SKU, or category…"
+                placeholder="Search name or SKU…"
                 className="h-full min-w-0 flex-1 border-none bg-transparent text-base text-ink-strong outline-none"
               />
             </div>
@@ -121,51 +188,84 @@ export function WalkInOrderScreen({ products, categories, templeName, onClose, o
                 onClick={() => setBrowseCat(null)}
                 className={cn(
                   'rounded-full border-none px-2.75 py-1.25 font-sans text-xs font-medium',
-                  browseCat ? 'bg-card text-ink ring-1 ring-inset ring-stroke' : 'bg-primary-subtle text-primary-subtle-text ring-2 ring-inset ring-primary',
+                  browseCat
+                    ? 'bg-card text-ink ring-1 ring-inset ring-stroke'
+                    : 'bg-primary-subtle text-primary-subtle-text ring-2 ring-inset ring-primary',
                 )}
               >
                 All
               </button>
-              {activeCategories.map((c) => {
-                const on = browseCat === c.id
+              {activeCategories.map((category) => {
+                const on = browseCat === category.id
                 return (
                   <button
-                    key={c.id}
+                    key={category.id}
                     type="button"
-                    onClick={() => setBrowseCat(on ? null : c.id)}
+                    onClick={() => setBrowseCat(on ? null : category.id)}
                     className={cn(
                       'rounded-full border-none px-2.75 py-1.25 font-sans text-xs font-medium',
-                      on ? 'bg-primary-subtle text-primary-subtle-text ring-2 ring-inset ring-primary' : 'bg-card text-ink ring-1 ring-inset ring-stroke',
+                      on
+                        ? 'bg-primary-subtle text-primary-subtle-text ring-2 ring-inset ring-primary'
+                        : 'bg-card text-ink ring-1 ring-inset ring-stroke',
                     )}
                   >
-                    {c.name}
+                    {category.name}
                   </button>
                 )
               })}
             </div>
           </div>
-          <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-[repeat(auto-fill,minmax(190px,1fr))] content-start gap-2.5 overflow-y-auto p-3.5">
-            {results.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => addToCart(p.id)}
-                className="flex min-h-[88px] flex-col justify-between gap-3 rounded-lg border-none bg-card p-3.25 text-left shadow-xs transition-shadow duration-120 ease-ks hover:bg-hover hover:shadow-sm"
-              >
-                <span className="min-w-0">
-                  <span className="block text-sm font-medium leading-snug text-ink-strong">{p.name}</span>
-                  <span className="mt-0.5 block text-2xs text-ink-subtle">{categoryName(categories, p.categoryId)}</span>
-                </span>
-                <span className="flex items-center justify-between gap-2">
-                  <span className="tabular-nums text-base font-bold text-ink-strong">{formatINR(p.price)}</span>
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-primary-subtle text-primary">
-                    <Icon name="plus" size={14} />
-                  </span>
-                </span>
-              </button>
-            ))}
-            {results.length === 0 && <div className="col-span-full py-7.5 text-center text-sm text-ink-subtle">No active products match.</div>}
-          </div>
+
+          {productsQuery.isPending ? (
+            <div className="flex min-h-40 flex-1 flex-col items-center justify-center gap-3 text-ink-subtle">
+              <Spinner size={24} />
+              <span className="text-sm">Loading catalogue…</span>
+            </div>
+          ) : (
+            <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-[repeat(auto-fill,minmax(190px,1fr))] content-start gap-2.5 overflow-y-auto p-3.5">
+              {results.map((product) => {
+                // Nothing sellable without a variant, and nothing to sell at zero.
+                const sellable = product.variantId != null && product.stockQuantity > 0
+                return (
+                  <button
+                    key={product.id}
+                    type="button"
+                    disabled={!sellable}
+                    onClick={() => addToCart(product)}
+                    className={cn(
+                      'flex min-h-[88px] flex-col justify-between gap-3 rounded-lg border-none p-3.25 text-left shadow-xs transition-shadow duration-120 ease-ks',
+                      sellable
+                        ? 'cursor-pointer bg-card hover:bg-hover hover:shadow-sm'
+                        : 'cursor-not-allowed bg-sunken opacity-60',
+                    )}
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium leading-snug text-ink-strong">{product.name}</span>
+                      <span className="mt-0.5 block text-2xs text-ink-subtle">
+                        {product.sku ?? 'No SKU'} ·{' '}
+                        {product.stockQuantity > 0 ? `${product.stockQuantity} in stock` : 'Out of stock'}
+                      </span>
+                    </span>
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="tabular-nums text-base font-bold text-ink-strong">
+                        {product.price == null ? '—' : formatINR(product.price)}
+                      </span>
+                      {sellable && (
+                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-primary-subtle text-primary">
+                          <Icon name="plus" size={14} />
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                )
+              })}
+              {results.length === 0 && (
+                <div className="col-span-full py-7.5 text-center text-sm text-ink-subtle">
+                  No active products match.
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex w-[340px] flex-shrink-0 flex-col overflow-hidden rounded-2xl bg-card shadow-sm">
@@ -176,23 +276,47 @@ export function WalkInOrderScreen({ products, categories, templeName, onClose, o
             <span className="text-xs text-ink-subtle">{cartCount} items</span>
           </div>
 
+          {/* A refused sale names each short line — shown against the line itself
+              rather than flattened into one message. */}
+          {shortfalls.length > 0 && (
+            <div className="border-b border-stroke px-3 py-2.5">
+              <Alert type="danger" title="Not enough stock">
+                <div className="flex flex-col gap-0.5">
+                  {shortfalls.map((s: StockShortfall) => (
+                    <span key={s.productVariant} className="text-xs">
+                      {s.name}: asked {s.requested}, {s.available} left
+                    </span>
+                  ))}
+                </div>
+              </Alert>
+            </div>
+          )}
+
           {cart.length > 0 ? (
             <>
               <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2.75">
-                {cart.map((l) => {
-                  const p = findProduct(products, l.productId)
-                  const price = p?.price ?? 0
+                {cart.map((line) => {
+                  const short = shortfallByVariant.get(line.variantId)
+                  const atCap = line.quantity >= line.stock
                   return (
-                    <div key={l.productId} className="flex flex-col gap-2 rounded-lg bg-active px-2.75 py-2.75">
+                    <div
+                      key={line.variantId}
+                      className={cn(
+                        'flex flex-col gap-2 rounded-lg px-2.75 py-2.75',
+                        short ? 'bg-danger-surface' : 'bg-active',
+                      )}
+                    >
                       <div className="flex items-start gap-2">
                         <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium text-ink-strong">{p?.name ?? l.productId}</div>
-                          <div className="text-xs text-ink-subtle">{formatINR(price)} each</div>
+                          <div className="text-sm font-medium text-ink-strong">{line.name}</div>
+                          <div className="text-xs text-ink-subtle">
+                            {formatINR(line.price)} each · {short ? `${short.available} left` : `${line.stock} in stock`}
+                          </div>
                         </div>
                         <button
                           type="button"
                           aria-label="Remove"
-                          onClick={() => remove(l.productId)}
+                          onClick={() => remove(line.variantId)}
                           className="inline-flex h-6.5 w-6.5 flex-shrink-0 items-center justify-center rounded-md border-none bg-transparent text-ink-subtle hover:bg-danger-surface hover:text-danger"
                         >
                           <Icon name="trash" size={15} />
@@ -203,29 +327,36 @@ export function WalkInOrderScreen({ products, categories, templeName, onClose, o
                           <button
                             type="button"
                             aria-label="Decrease"
-                            disabled={l.quantity <= 1}
-                            onClick={() => dec(l.productId)}
+                            disabled={line.quantity <= 1}
+                            onClick={() => setQuantity(line.variantId, line.quantity - 1)}
                             className="inline-flex h-6.5 w-6.5 items-center justify-center rounded-sm border-none bg-transparent text-ink-muted hover:bg-hover disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             <Icon name="minus" size={13} />
                           </button>
-                          <span className="min-w-6.5 text-center tabular-nums text-sm font-semibold text-ink-strong">{l.quantity}</span>
+                          <span className="min-w-6.5 text-center tabular-nums text-sm font-semibold text-ink-strong">
+                            {line.quantity}
+                          </span>
                           <button
                             type="button"
                             aria-label="Increase"
-                            onClick={() => inc(l.productId)}
-                            className="inline-flex h-6.5 w-6.5 items-center justify-center rounded-sm border-none bg-transparent text-ink-muted hover:bg-hover"
+                            disabled={atCap}
+                            title={atCap ? 'That is all the shelf has' : undefined}
+                            onClick={() => setQuantity(line.variantId, line.quantity + 1)}
+                            className="inline-flex h-6.5 w-6.5 items-center justify-center rounded-sm border-none bg-transparent text-ink-muted hover:bg-hover disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             <Icon name="plus" size={13} />
                           </button>
                         </div>
                         <div className="flex-1" />
-                        <span className="tabular-nums text-base font-bold text-ink-strong">{formatINR(price * l.quantity)}</span>
+                        <span className="tabular-nums text-base font-bold text-ink-strong">
+                          {formatINR(line.price * line.quantity)}
+                        </span>
                       </div>
                     </div>
                   )
                 })}
               </div>
+
               <div className="flex-shrink-0 border-t border-stroke bg-sunken px-4.5 py-4">
                 <div className="mb-3 flex gap-2">
                   <input
@@ -271,15 +402,13 @@ export function WalkInOrderScreen({ products, categories, templeName, onClose, o
         </div>
       </div>
 
-      <WalkInPaymentModal open={payOpen} total={total} onClose={() => setPayOpen(false)} onConfirm={handleConfirm} />
-      <WalkInReceiptModal
-        order={receiptOrder}
-        products={products}
-        categories={categories}
-        templeName={templeName}
-        onDone={handleDone}
-        onNewSale={handleNewSale}
-        onPrint={() => receiptOrder && onPrintReceipt(receiptOrder)}
+      <WalkInPaymentModal
+        open={payOpen}
+        total={total}
+        saving={createSale.isPending}
+        errorMessage={shortfalls.length > 0 ? null : failure?.message ?? null}
+        onClose={() => setPayOpen(false)}
+        onConfirm={handleConfirm}
       />
     </div>
   )

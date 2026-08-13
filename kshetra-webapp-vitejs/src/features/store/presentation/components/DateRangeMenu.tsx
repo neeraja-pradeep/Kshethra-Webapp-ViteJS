@@ -3,10 +3,11 @@ import { useEffect, useState } from 'react'
 import { cn } from '@/shared/lib/cn'
 import { Icon } from '@/shared/ui'
 
-import { todayISO } from '../lib/storeFormat'
+import { todayISO } from '../lib/storeOrderListFilters'
 
-export type DateFilterMode = 'single' | 'range'
-export type DatePreset = 'today' | 'next7' | 'month'
+/** `all` is the resting state — an order list opens unfiltered by date. */
+export type DateFilterMode = 'all' | 'single' | 'range'
+export type DatePreset = 'all' | 'today' | 'last7' | 'month'
 
 export interface DateRangeMenuProps {
   mode: DateFilterMode
@@ -93,7 +94,14 @@ export function DateRangeMenu({ mode, date, from, to, onModeChange, onPickSingle
   const days: number[] = Array.from({ length: daysInMonth }, (_, i) => i + 1)
 
   const fmtShort = (iso: string) => parseISO(iso)?.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) ?? iso
-  const chipLabel = mode === 'single' ? (date === today ? `Today · ${fmtShort(date)}` : fmtShort(date)) : `${fmtShort(from)} – ${fmtShort(to)}`
+  const chipLabel =
+    mode === 'all'
+      ? 'All dates'
+      : mode !== 'range'
+        ? date === today
+          ? `Today · ${fmtShort(date)}`
+          : fmtShort(date)
+        : `${fmtShort(from)} – ${fmtShort(to)}`
 
   return (
     <div className="relative">
@@ -122,7 +130,7 @@ export function DateRangeMenu({ mode, date, from, to, onModeChange, onPickSingle
                 onClick={() => onModeChange('single')}
                 className={cn(
                   'flex-1 rounded-md border-none px-3 py-1.25 font-sans text-xs font-medium',
-                  mode === 'single' ? 'bg-card text-ink-strong shadow-xs' : 'bg-transparent text-ink-muted',
+                  mode !== 'range' ? 'bg-card text-ink-strong shadow-xs' : 'bg-transparent text-ink-muted',
                 )}
               >
                 Day
@@ -142,8 +150,9 @@ export function DateRangeMenu({ mode, date, from, to, onModeChange, onPickSingle
               {(
                 [
                   ['today', 'Today'],
-                  ['next7', 'Next 7 days'],
+                  ['last7', 'Last 7 days'],
                   ['month', 'This month'],
+                  ['all', 'All dates'],
                 ] as const
               ).map(([kind, label]) => (
                 <button
