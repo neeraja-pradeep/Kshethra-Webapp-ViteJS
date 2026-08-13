@@ -52,7 +52,14 @@ export function BookingDetailDrawer({
             {booking.pooja.name} · {booking.person.name}
           </span>
         </div>
-        <BookingStatusBadge label={statusLabel(booking.status)} tone={statusTone(booking.status)} />
+        <span className="min-w-0 shrink">
+          <BookingStatusBadge label={statusLabel(booking.status)} tone={statusTone(booking.status)} />
+        </span>
+        {/* A slide-over needs a way out at the edge it opened from — the back
+            arrow reads as navigation, not as closing the panel. */}
+        <IconButton label="Close" variant="ghost" onClick={onClose}>
+          <Icon name="x" size={18} />
+        </IconButton>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
