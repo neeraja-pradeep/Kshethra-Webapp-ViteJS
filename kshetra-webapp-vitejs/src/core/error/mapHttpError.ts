@@ -91,7 +91,15 @@ export function mapHttpError(error: unknown): Failure {
 
   if (status === 401) return { kind: 'unauthorized', message: message ?? UNAUTHORIZED_MESSAGE, status }
   if (status === 403) return { kind: 'forbidden', message: message ?? FORBIDDEN_MESSAGE, status }
-  if (status === 404) return { kind: 'notFound', message: message ?? NOT_FOUND_MESSAGE, status }
+  if (status === 404) {
+    // A 404 can still name the thing it could not find, and does so in a field
+    // key rather than `detail` — e.g. `{"booking_ids": "No booking with id 91
+    // on order PO-2071."}`. Falling straight through to the generic message
+    // would throw away the only part the operator can act on.
+    const fieldErrors = readFieldErrors(body)
+    const firstFieldMessage = Object.values(fieldErrors)[0]?.[0]
+    return { kind: 'notFound', message: message ?? firstFieldMessage ?? NOT_FOUND_MESSAGE, status }
+  }
 
   if (status >= 500) return { kind: 'server', message: SERVER_MESSAGE, status }
 

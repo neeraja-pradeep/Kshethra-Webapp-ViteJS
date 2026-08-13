@@ -47,9 +47,33 @@ export const router = createBrowserRouter([
       { path: 'pooja-bookings', element: <BookingsScreen /> },
       { path: 'pooja-orders', element: <OrdersScreen /> },
       { path: 'store', element: <Navigate to="/store/orders" replace /> },
-      { path: 'store/orders', element: <StoreOrdersScreen /> },
-      { path: 'store/products', element: <StoreProductsScreen /> },
-      { path: 'store/categories', element: <StoreCategoriesScreen /> },
+      {
+        path: 'store/orders',
+        element: (
+          // Reading a shop order is `view_order`; acting on somebody else's is
+          // what `access_all_objects` guards, and every action on this screen
+          // does exactly that.
+          <ProtectedRoute requires={PERMISSIONS.viewEcommerceOrder}>
+            <StoreOrdersScreen />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'store/products',
+        element: (
+          <ProtectedRoute requires={PERMISSIONS.viewProduct}>
+            <StoreProductsScreen />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'store/categories',
+        element: (
+          <ProtectedRoute requires={PERMISSIONS.viewCategory}>
+            <StoreCategoriesScreen />
+          </ProtectedRoute>
+        ),
+      },
       { path: 'poojas', element: <PoojasScreen /> },
       { path: 'gods', element: <GodsScreen /> },
       { path: 'devotees', element: <DevoteesScreen /> },

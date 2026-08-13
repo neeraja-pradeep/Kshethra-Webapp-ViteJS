@@ -43,3 +43,47 @@ export const ADMIN_BOOKING_ENDPOINTS = {
   assignBookings: '/admin/bookings/assign/',
   poojaris: '/admin/poojaris/',
 } as const
+
+/**
+ * The back-office order feed and the order detail page's actions.
+ *
+ * `allOrders` unions pooja orders and shop orders; the Pooja Orders screen
+ * pins `?source=pooja`. Every other path here is pooja-only — the shop has its
+ * own detail endpoints.
+ */
+export const ADMIN_ORDER_ENDPOINTS = {
+  allOrders: '/admin/orders/all/',
+  poojaOrder: (id: number) => `/admin/orders/pooja/${id}/`,
+  poojaOrderReceipt: (id: number) => `/admin/orders/pooja/${id}/receipt/`,
+  cancelPoojaOrder: (id: number) => `/admin/orders/pooja/${id}/cancel/`,
+  cancelPoojaOrderBookings: (id: number) => `/admin/orders/pooja/${id}/cancel-bookings/`,
+  productOrder: (id: number) => `/admin/orders/product/${id}/`,
+  productOrderReceipt: (id: number) => `/admin/orders/product/${id}/receipt/`,
+  productOrderFulfilment: (id: number) => `/admin/orders/product/${id}/fulfilment/`,
+  cancelProductOrder: (id: number) => `/admin/orders/product/${id}/cancel/`,
+  refundProductOrder: (id: number) => `/admin/orders/product/${id}/refund/`,
+  productWalkIn: '/admin/orders/product/walk-in/',
+} as const
+
+/**
+ * The shop catalogue.
+ *
+ * `products` is a **flat** view — one row per product with its primary
+ * variant's price, SKU and stock folded in — served under `/admin/` rather than
+ * `/ecommerce/` because it is the back office's shape, not the storefront's.
+ * Categories are the storefront's own resource, which is why they sit under
+ * `/ecommerce/`: the order they are in here is the order a devotee sees.
+ */
+export const STORE_ENDPOINTS = {
+  products: '/admin/store/products/',
+  newProduct: '/admin/store/products/new/',
+  product: (id: number) => `/admin/store/products/${id}/`,
+  productStatus: (id: number) => `/admin/store/products/${id}/status/`,
+  /** `POST` adjusts stock, `GET` returns the adjustment history. */
+  productStock: (id: number) => `/admin/store/products/${id}/stock/`,
+  categories: '/ecommerce/category/',
+  category: (id: number) => `/ecommerce/category/${id}/`,
+  reorderCategories: '/ecommerce/category/reorder/',
+  /** How a multi-variant product is managed — the flat view never writes variants. */
+  productVariants: '/ecommerce/product-variant/',
+} as const

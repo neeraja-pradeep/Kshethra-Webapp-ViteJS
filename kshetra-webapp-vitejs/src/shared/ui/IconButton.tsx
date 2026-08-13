@@ -63,7 +63,7 @@ export function IconButton({
       title={label}
       disabled={disabled}
       className={cn(
-        'inline-flex items-center justify-center box-border p-0 outline-none transition-[background,color] duration-120 ease-ks',
+        'inline-flex shrink-0 items-center justify-center box-border p-0 outline-none transition-[background,color] duration-120 ease-ks',
         SIZE[size],
         PALETTE[theme][variant],
         disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',

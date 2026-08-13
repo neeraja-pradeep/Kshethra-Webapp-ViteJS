@@ -50,9 +50,9 @@ export const NAV: NavItem[] = [
   {
     id: 'store', label: 'Store', icon: 'shopping-bag', desc: 'Orders, products, categories, and inventory.', roles: ['Admin', 'Manager', 'Store staff'], group: 1,
     children: [
-      { id: 'store-orders', label: 'Orders', icon: 'shopping-cart-simple', path: '/store/orders', desc: 'Store orders — fulfilment and refunds.', roles: ['Admin', 'Manager', 'Store staff'] },
-      { id: 'store-products', label: 'Products', icon: 'package', path: '/store/products', desc: 'Products, pricing, and stock.', roles: ['Admin', 'Manager', 'Store staff'] },
-      { id: 'store-categories', label: 'Categories', icon: 'tag', path: '/store/categories', desc: 'Product categories and their order.', roles: ['Admin', 'Manager', 'Store staff'] },
+      { id: 'store-orders', label: 'Orders', icon: 'shopping-cart-simple', path: '/store/orders', desc: 'Store orders — fulfilment and refunds.', roles: ['Admin', 'Manager', 'Store staff'], permissions: [PERMISSIONS.viewEcommerceOrder] },
+      { id: 'store-products', label: 'Products', icon: 'package', path: '/store/products', desc: 'Products, pricing, and stock.', roles: ['Admin', 'Manager', 'Store staff'], permissions: [PERMISSIONS.viewProduct] },
+      { id: 'store-categories', label: 'Categories', icon: 'tag', path: '/store/categories', desc: 'Product categories and their order.', roles: ['Admin', 'Manager', 'Store staff'], permissions: [PERMISSIONS.viewCategory] },
     ],
   },
 

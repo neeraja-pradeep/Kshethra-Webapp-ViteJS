@@ -27,3 +27,6 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Generated knowledge graph — rebuild with `graphify update .`
+graphify-out/

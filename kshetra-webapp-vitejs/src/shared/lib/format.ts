@@ -24,3 +24,34 @@ export function svgThumb(label: string, bg: string): string {
     `</svg>`
   return 'data:image/svg+xml,' + encodeURIComponent(svg)
 }
+
+/** Revenue KPI: lakh-abbreviated above ₹1,00,000, plain ₹ grouping below. */
+export function formatRevenue(amount: number): string {
+  if (amount >= 100000) {
+    const lakh = (amount / 100000).toFixed(2).replace(/\.00$/, '')
+    return `₹${lakh}L`
+  }
+  return formatINR(amount)
+}
+/**
+ * An ISO datetime from the API → "29 Jun 2026, 8:15 am".
+ *
+ * Distinct from `formatOrderDate`, which takes a bare `yyyy-mm-dd`. The order
+ * feed's `created_at` is a full timestamp and splitting it on `-` would read
+ * the time as part of the day.
+ */
+export function formatOrderDateTime(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return iso
+  return (
+    date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) +
+    ', ' +
+    date.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })
+  )
+}
+/** The day part only of an ISO datetime — "29 Jun 2026". */
+export function formatOrderDay(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return iso
+  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
