@@ -15,36 +15,38 @@ Status legend: ✅ built · 🟡 partial · ❌ nothing.
 | Endpoint | Needs | Data | UI | Notes |
 |---|---|---|---|---|
 | `GET rbac/me/permissions/` | any signed-in | ✅ | ✅ | Gating, route guards, account menu |
-| `GET rbac/permissions/` | `manage_roles` | ✅ | ❌ | `usePermissionCatalogueQuery` — no catalogue screen |
-| `GET rbac/roles/` | `assign_roles` | ✅ | 🟡 | Feeds the role filter and the assignment editor — no roles *screen* |
-| `POST rbac/roles/` | `manage_roles` | ✅ | ❌ | `useCreateRoleMutation` — no role builder |
-| `GET rbac/roles/{id}/` | `assign_roles` | ✅ | ❌ | `useRoleQuery` |
-| `PATCH rbac/roles/{id}/` | `manage_roles` | ✅ | ❌ | `useUpdateRoleMutation` |
-| `DELETE rbac/roles/{id}/` | `manage_roles` | ✅ | ❌ | `useDeleteRoleMutation`, incl. the `409` → `force` outcome |
-| `GET rbac/roles/{id}/users/` | `assign_roles` | ✅ | ❌ | `useRoleUsersQuery` |
-| `POST rbac/roles/{id}/assign/` | `assign_roles` | ✅ | ❌ | `useAssignRoleToUsersMutation` |
-| `POST rbac/roles/{id}/unassign/` | `assign_roles` | ✅ | ❌ | `useUnassignRoleFromUsersMutation` |
+| `GET rbac/permissions/` | `manage_roles` | ✅ | ✅ | The builder's "All permissions" view, and the source of `is_dangerous` / `warning` |
+| `GET rbac/roles/` | `assign_roles` | ✅ | ✅ | The Roles tab, with a `custom_only` toggle and server pagination |
+| `POST rbac/roles/` | `manage_roles` | ✅ | ✅ | Role builder — module/capability grid |
+| `GET rbac/roles/{id}/` | `assign_roles` | ✅ | ✅ | Seeds the builder's draft |
+| `PATCH rbac/roles/{id}/` | `manage_roles` | ✅ | ✅ | Always the full permission set — never a delta |
+| `DELETE rbac/roles/{id}/` | `manage_roles` | ✅ | ✅ | `DeleteRoleDialog` — the `409` becomes a second step naming the holder count |
+| `GET rbac/roles/{id}/users/` | `assign_roles` | ✅ | ✅ | `RoleMembersView` |
+| `POST rbac/roles/{id}/assign/` | `assign_roles` | ✅ | ✅ | Bulk add in `RoleMembersView` |
+| `POST rbac/roles/{id}/unassign/` | `assign_roles` | ✅ | ✅ | Bulk remove in `RoleMembersView` |
 | `GET rbac/users/` | `assign_roles` + `view_customuser` | ✅ | ✅ | Users list — server search, role/base-role filters, pagination |
 | `GET rbac/users/{id}/` | `assign_roles` + `view_customuser` | ✅ | ✅ | User detail — identity, roles, effective permissions |
-| `POST rbac/users/{id}/assign_roles/` | `assign_roles` | ✅ | ❌ | |
-| `POST rbac/users/{id}/remove_roles/` | `assign_roles` | ✅ | ❌ | |
+| `POST rbac/users/{id}/assign_roles/` | `assign_roles` | ✅ | ❌ | `set_roles` covers the screen's need; kept for a future incremental editor |
+| `POST rbac/users/{id}/remove_roles/` | `assign_roles` | ✅ | ❌ | As above |
 | `POST rbac/users/{id}/set_roles/` | `assign_roles` | ✅ | ✅ | Role editor (multi-select); the delta drives the toast |
 | `POST auth/admin-signin/` | `access_admin_portal` | ✅ | ✅ | |
 
-**16 of 16 have a data layer; 5 of 16 have a UI.** Every endpoint is declared in `RBAC_ENDPOINTS`, schema-validated against the live server, and reachable through a hook. The gap is now entirely presentational.
+**16 of 16 have a data layer; 14 of 16 have a UI.** The two without are `assign_roles` / `remove_roles`, which the wholesale `set_roles` editor makes redundant for now.
+
+Six further endpoints were found to exist and are now wired too — `POST users/`, `PATCH users/{id}/`, `DELETE users/{id}/`, `POST users/{id}/activate/`, `POST users/{id}/set-password/` and `GET users/assignable-roles/`. They were absent from this table because §5b assumed they did not exist.
 
 ---
 
-## 2. Permission catalogue — nothing renders it
+## 2. Permission catalogue ✅ rendered
 
-`GET rbac/permissions/` is the whole basis of the role builder and has no client surface at all.
+`GET rbac/permissions/` now backs the builder's "All permissions" view.
 
-- [ ] Render the catalogue, one section per `group.label`, **"Special actions" first** — `orderedGroups()` already sorts them
-- [ ] `search` filter (matches name / codename / model — all three are on the `Permission` entity)
-- [ ] `app_label` filter
-- [ ] `is_dangerous` badge on the ~3 flagged permissions
-- [ ] **Confirmation step before granting a dangerous permission, showing the server's `warning` text** (§4 of the contract)
-- [ ] Show `dangerous_permissions` as a summary on the role being built
+- [x] One section per `group.label`, **"Special actions" first** — via `orderedGroups()`
+- [x] `search` filter over name / codename / model / value. **Client-side on purpose:** `usePermissionCatalogueQuery` keys on its search term, so passing one through would leave the builder holding a partial catalogue — and `is_dangerous` is read from that same catalogue, so it would quietly stop flagging while a filter was typed
+- [ ] `app_label` filter — the group headings make it near-redundant
+- [x] `is_dangerous` badge, read from the live catalogue rather than a hardcoded list
+- [x] **Confirmation showing the server's `warning` text**, fired at the moment of the tick rather than deferred to save
+- [x] Dangerous count summarised on the role being built
 
 `PERMISSIONS` in `features/auth/application/hooks/permissions.ts` lists 12 codenames against a live catalogue of **193** in 9 groups. It is the gating vocabulary and should stay hardcoded; **the builder must read the live catalogue** — the two are different jobs. `usePermissionCatalogueQuery` already fetches and validates it, holding it for 30 minutes since new permissions only appear on a backend deploy.
 
@@ -102,9 +104,13 @@ Status legend: ✅ built · 🟡 partial · ❌ nothing.
 - [x] Server pagination (page + page size)
 - [x] `set_roles` returns an `added` / `removed` delta — it drives the confirmation toast
 
-⚠️ **Blocked, not merely unbuilt:** the screen draws **Add user, Edit, Deactivate, Reactivate, Delete** and the RBAC API has **no `POST` / `PATCH` / `DELETE` on users** — it is read + role-assignment only. `name`, `avatar`, `createdBy` / `modifiedBy`, `activity`, `metrics` and `gods` have no source either. Needs a backend answer before that half can be finished; see §G of the gaps doc.
+✅ **Not blocked after all — built.** This entry claimed the RBAC API had "no `POST` / `PATCH` / `DELETE` on users". It has all three, plus `activate/`, `set-password/` and `assignable-roles/`; see the corrected §G of the gaps doc for the full table and its gating. Add, edit, deactivate, reactivate and set-password are wired.
 
-⚠️ **Out of scope by design:** making someone an admin means changing `base_role` on the user record — built-in roles can't be assigned as extras. Not doable through this API at all, so the UI must not offer it.
+⚠️ **Still genuinely sourceless:** `avatar`, `createdBy` / `modifiedBy`, `activity`, `metrics` and `gods`. And `first_name` / `last_name` are **writable but not readable** — both write serializers accept them, `UserRoleSerializer` returns neither, so a saved name never comes back. The form says so rather than pretending it round-trips.
+
+⚠️ **There is no destructive delete.** `DELETE users/{id}/` deactivates and keeps the row. The UI offers Deactivate / Reactivate only — drawing "Delete" beside "Deactivate" would be two buttons for one outcome.
+
+✅ **Base role is editable, contrary to what this line said.** `PATCH users/{id}/` accepts `role`, and saving it re-syncs the account's groups in one step — the new role's permissions granted, the previous role's revoked. It is not additive, unlike `assigned_roles`, and the form says so. What remains true: built-in roles cannot be assigned as *extras*; that is what `assigned_roles` is for. The server guards the obvious abuses — an operator cannot re-role their own account, and only a superuser may modify a superuser.
 
 ---
 
@@ -114,13 +120,13 @@ The Users & Roles screen was integrated with `rbac/users/` in full. These parts 
 
 | Drawn | Component(s) | Why it is not wired |
 |---|---|---|
-| **Add user** | list header button, `UserFormView` | No `POST rbac/users/`. Accounts arrive via devotee signup or `temple_admin/register-poojari/` |
-| **Edit identity** — name, email, phone, avatar | `UserFormView`, `UserIdentitySection` | No `PATCH rbac/users/{id}/`. The registry is read-only apart from role assignment |
-| **Deactivate / Reactivate** | `AccountLifecycleCard` | `is_active` is returned but **no endpoint flips it** |
-| **Delete user** | `AccountLifecycleCard`, `ConfirmUserDialog` | No `DELETE rbac/users/{id}/` |
+| ~~**Add user**~~ | ✅ built — `StaffUserFormView` | `POST rbac/users/` exists. `UserFormView` was **deleted**: it was drawn against the prototype `User`/`Role` model (avatar, a scalar `roleId`, poojari deities), none of which the real serializer has |
+| ~~**Edit identity**~~ | ✅ built — `StaffUserFormView` | `PATCH rbac/users/{id}/` exists. `username` stays immutable (sign-in identifier, appears in the audit trail); no avatar field exists anywhere |
+| ~~**Deactivate / Reactivate**~~ | ✅ built — `StaffUserLifecycle` | Both `DELETE users/{id}/` and `PATCH is_active` deactivate; `POST activate/` reverses it. `AccountLifecycleCard` was **deleted** — it offered a Delete this API cannot perform |
+| **Delete user** | — | **Will not be built.** `DELETE` deactivates and keeps the row so a clerk who took counter payments stays attributable. `ConfirmUserDialog` survives, re-pointed at deactivate / reactivate |
 | **Counter / store / poojari activity** | `CounterActivityPanel`, `StoreActivityPanel`, `PoojariActivityPanel`, `UserMetrics` | No metrics on any user endpoint. Every number was prototype fiction |
 | **Poojari god assignment** | `PoojariGodsSection`, `GodPickerDropdown`, `gods.mock.ts` | Nothing assigns deities to a poojari. (`gods` in the backend is a **pooja↔category** relation, not a poojari one.) Poojari management lives under `temple_admin/poojaris/` — a separate feature needing its own contract |
-| **Module access list** | `ModuleAccessPanel` | Module names were invented by the prototype. Replaced by `EffectivePermissionsPanel`, which renders the server's `effective_permissions` |
+| **Module access list** | ~~`ModuleAccessPanel`~~ | The prototype's module names were invented, so the panel was **deleted**. Modules came back properly in the role builder, transcribed from `permission_map_fe.md` and resolved from real codenames. `EffectivePermissionsPanel` still renders the server's `effective_permissions` on the user detail |
 | **Status filter** | `UsersFilterBar` | `rbac/users/` **ignores `is_active`** — verified live. Replaced with a base-role filter, which the server does honour |
 | **Column sorting** | `SortableColumnHeader` | `rbac/users/` **ignores `ordering`** — verified live. Sorting one page would read as sorting the registry |
 | **Active / Inactive KPI tiles** | `buildStatusKpis` | No status counts. The band now shows two real server totals: users, and custom roles |
@@ -131,12 +137,12 @@ The Users & Roles screen was integrated with `rbac/users/` in full. These parts 
 
 ### To finish the Users screen, the backend needs
 
-- [ ] `POST rbac/users/` — create a staff account
-- [ ] `PATCH rbac/users/{id}/` — edit identity, and flip `is_active`
-- [ ] `DELETE rbac/users/{id}/`
-- [ ] `is_active` and `ordering` query parameters on `GET rbac/users/`
+- [x] ~~`POST rbac/users/`~~ — exists
+- [x] ~~`PATCH rbac/users/{id}/`~~ — exists, and takes `role` too
+- [x] ~~`DELETE rbac/users/{id}/`~~ — exists (deactivates)
+- [ ] **`first_name` / `last_name` on the read serializer.** Both write serializers accept them and `UserRoleSerializer` returns neither, so the console can save a name it can never show again. The one real gap left in this half.
+- [ ] `is_active` and `ordering` query parameters on `GET rbac/users/` — until then, no status filter and no column sorting
 - [ ] A per-user activity/metrics endpoint, if those panels are still wanted
-- [ ] A full-name field, if `username` is not the intended display name
 
 ---
 

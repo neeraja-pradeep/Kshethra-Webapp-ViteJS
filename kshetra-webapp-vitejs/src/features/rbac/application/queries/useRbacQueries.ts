@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { unwrap } from '@/core/error/result'
 
 import { rbacKeys } from '@/features/rbac/application/queries/rbac.keys'
+import { fetchAssignableBaseRoles } from '@/features/rbac/application/usecases/fetchAssignableBaseRoles'
 import { fetchPermissions } from '@/features/rbac/application/usecases/fetchPermissions'
 import { fetchRole } from '@/features/rbac/application/usecases/fetchRole'
 import { fetchRoles } from '@/features/rbac/application/usecases/fetchRoles'
@@ -46,6 +47,22 @@ export function useRoleUsersQuery(id: number | null, page?: number) {
     queryKey: rbacKeys.roleUsers(id ?? 0, page),
     queryFn: async () => unwrap(await fetchRoleUsers(id ?? 0, page)),
     enabled: id !== null,
+  })
+}
+
+/**
+ * The base-role dropdown's options.
+ *
+ * Needs `manage_users`, so it is gated by `enabled` rather than fetched
+ * eagerly — an assign-only supervisor would get a 403 for a list they have no
+ * control to use. Deployment-static, so it is held as long as the catalogue.
+ */
+export function useAssignableBaseRolesQuery(enabled: boolean) {
+  return useQuery({
+    queryKey: rbacKeys.assignableBaseRoles(),
+    queryFn: async () => unwrap(await fetchAssignableBaseRoles()),
+    staleTime: CATALOGUE_STALE_TIME_MS,
+    enabled,
   })
 }
 

@@ -17,6 +17,12 @@ export const PERMISSIONS = {
   /** Listing roles/users and assigning them. Weaker than `manageRoles`. */
   assignRoles: 'rbac.assign_roles',
   /**
+   * Staffing the team — creating an account, choosing its base role,
+   * deactivating it. Deliberately above `assignRoles`: the split is what stops
+   * a role that may hand out existing roles from also minting a new admin.
+   */
+  manageUsers: 'rbac.manage_users',
+  /**
    * Rostering, kept separate from `managePoojaOrders` on purpose: a duty
    * manager can be allowed to move work between poojaris without being given
    * the rest of the back office.
@@ -69,4 +75,14 @@ export const PERMISSIONS = {
    * against the live catalogue, where `auth.view_customuser` does not exist.
    */
   viewCustomuser: 'authentication.view_customuser',
+  /** Paired with `manageUsers` to create an account. */
+  addCustomuser: 'authentication.add_customuser',
+  /**
+   * Paired with `manageUsers` to edit, deactivate or reactivate an account.
+   *
+   * Deactivating asks for `change`, not `delete_customuser`: DELETE keeps the
+   * row so a clerk who took counter payments stays attributable. The button
+   * says delete; the permission is the real one.
+   */
+  changeCustomuser: 'authentication.change_customuser',
 } as const

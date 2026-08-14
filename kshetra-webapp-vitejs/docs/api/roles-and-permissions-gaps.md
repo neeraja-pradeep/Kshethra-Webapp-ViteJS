@@ -2,7 +2,7 @@
 
 An audit of the console's auth/permission layer against [roles-and-permissions-quick-reference.md](roles-and-permissions-quick-reference.md), plus the plan to close it. The per-capability checklist lives in [roles-and-permissions-unbuilt-ui.md](roles-and-permissions-unbuilt-ui.md).
 
-Short version: **the consumption side is done and correct; the administration side does not exist.** The console reads `rbac/me/permissions/` properly and gates on codenames exactly as §7 prescribes. But 8 of the 9 endpoint families in the doc's cheat sheet have no client surface at all, and the Users & Roles screen is a mock built on a role model that contradicts the backend's.
+Short version: **the consumption side is done and correct; the administration side does not exist.** (Both halves have since been built — see the phase notes below. §G's "blocker" was a misreading and is corrected there.) The console reads `rbac/me/permissions/` properly and gates on codenames exactly as §7 prescribes. But 8 of the 9 endpoint families in the doc's cheat sheet have no client surface at all, and the Users & Roles screen is a mock built on a role model that contradicts the backend's.
 
 ---
 
@@ -99,24 +99,52 @@ Missing from the constant even for gating purposes: `rbac.assign_roles` (§E), `
 
 ---
 
-## G. Blocker — the RBAC API cannot back half the Users screen
+## G. ~~Blocker~~ — resolved: the RBAC API does back the Users screen
 
-The screen draws Add user, Edit user, Deactivate, Reactivate and Delete. The RBAC users endpoints are **read + role-assignment only**. There is no `POST users/`, no `PATCH users/{id}/`, no `DELETE`.
+**This section was wrong, and it parked Phase 5 for no reason.** It claimed the
+RBAC users endpoints were "read + role-assignment only". Read against
+`rbac/views.py` and `rbac/urls.py`, the full set exists and always did:
 
-| Field the screen owns | `GET users/` returns | Verdict |
+| Endpoint | Backing | Writable fields |
 |---|---|---|
-| `name` | `username` only | No full name in this API |
-| `email`, `phone` | `email` (may be `""`) and **`phone_number`** | ✅ both — the contract doc lists phone as searchable only, but the registry returns it |
-| `status` Active/Inactive | `is_active` | Read-only here — no endpoint flips it |
-| `roleId` | `base_role` + `assigned_roles[]` | See §B |
-| `avatar` | — | Nothing |
-| `createdBy` / `modifiedBy` | `created_at` only | Nothing — though **roles** do carry `created_by_username` and `updated_at` |
-| `activity`, `metrics` | — | Nothing |
-| `gods` (poojari assignment) | — | Different domain entirely |
+| `POST users/` | `StaffUserCreateSerializer` | `username`, `password`, `role`, `email`, `phone_number`, `first_name`, `last_name`, `is_active`, `employee_id` (poojari only) |
+| `PATCH users/{id}/` | `StaffUserUpdateSerializer` | `role`, `email`, `phone_number`, `first_name`, `last_name`, `is_active` |
+| `DELETE users/{id}/` | deactivates; the row is kept so past counter activity stays attributable |
+| `POST users/{id}/activate/` | undo a deactivation |
+| `POST users/{id}/set-password/` | separate so a profile edit cannot change a password by accident |
+| `GET users/assignable-roles/` | the base-role dropdown's options |
 
-**This needs a backend decision before the Users screen can be finished.** Either user CRUD lives on another endpoint family not covered by this doc (`user/` app?), or the console's Users screen becomes read-only-plus-role-assignment and the add/deactivate/delete affordances come out. The role-management half (§H below) has no such dependency and can proceed regardless.
+Note the hyphens on `set-password` and `assignable-roles`, against the
+underscores on `set_roles` / `assign_roles`.
 
----
+Gating, from `rbac/permission_map.py` — `manage_users` is the line between
+handing out roles and staffing the team:
+
+| Action | Requires (ALL) |
+|---|---|
+| `list` / `retrieve` | `rbac.assign_roles` + `authentication.view_customuser` |
+| `assign_roles` / `remove_roles` / `set_roles` | `rbac.assign_roles` |
+| `create` | `rbac.manage_users` + `authentication.add_customuser` |
+| `update` / `destroy` / `activate` / `set_password` | `rbac.manage_users` + `authentication.change_customuser` |
+| `assignable_roles` | `rbac.manage_users` |
+
+Two server-side guards surface as `400`s and need their own copy: an operator
+cannot modify their own account, and only a superuser may modify a superuser.
+
+### What genuinely has no source
+
+| Field the design owns | Verdict |
+|---|---|
+| `first_name` / `last_name` | **Writable but not readable.** Both write serializers accept them; `UserRoleSerializer` returns neither. The form saves a name that never comes back. Needs the read serializer to expose them. |
+| `avatar` | Nothing. `Avatar` renders initials from `username`. |
+| `createdBy` / `modifiedBy` | Users carry `created_at` only. (Roles do carry `created_by_username` and `updated_at`.) |
+| `activity`, `metrics` | No endpoint. Every number in the design's activity panels was prototype fiction. |
+| `gods` (poojari deities) | A different domain — `gods` in the backend is a pooja↔category relation. |
+| `is_active` / `ordering` as **query params** | Still unsupported on `GET users/`, so the status filter and column sorting stay out. |
+
+**There is no destructive delete, and the UI must not offer one.** `DELETE`
+deactivates. Drawing "Deactivate" and "Delete" side by side would be two
+buttons for one outcome, one of them lying.
 
 ## H. Contract details with no client handling
 
@@ -131,7 +159,7 @@ The screen draws Add user, Edit user, Deactivate, Reactivate and Delete. The RBA
 
 # Plan
 
-Phase 1 is a correctness fix worth doing on its own. Phases 2–4 are the actual feature and follow the `counter-pos/` layering. Phase 5 is blocked on §G.
+Phase 1 is a correctness fix worth doing on its own. Phases 2–4 are the actual feature and follow the `counter-pos/` layering. Phase 5 was never blocked — §G was a misreading of the API.
 
 ## Phase 1 — Close the route/sidebar gap ✅ done
 
@@ -164,11 +192,14 @@ Also captured because the live payloads carry them and the contract doc omits th
 - `domain/repositories/rbac.repository.ts` — returns `Result<T>` throughout.
 - `infrastructure/data-sources/remote/` — one zod schema + mapper per response, matching the `*.response.ts` convention. Paginated shapes reuse the counter module's `wire.ts` page helper.
 
-## Phase 3 — Role management screens (application layer done, screens remain)
+## Phase 3 — Role management screens ✅ done
 
-- ✅ `application/` — 14 usecases, `rbacKeys`, 6 query hooks and 8 mutation hooks are **done**. `useRbacInvalidation` refreshes the RBAC lists *and* `authKeys.session()` after every write (§H), and every mutation uses it. **What remains in this phase is presentation only.**
+- ✅ `application/` — usecases, `rbacKeys`, query hooks and mutation hooks. `useRbacInvalidation` refreshes the RBAC lists *and* `authKeys.session()` after every write (§H), and every mutation uses it.
+- ✅ **The role builder speaks modules, not codenames** — see `permission_map_fe.md`. The 13 product modules and their capabilities are transcribed into `rbac/domain/entities/module-map.ts`, and capabilities are expanded to codenames **client-side**, written through the live `PATCH roles/{id}/`. The server's `modules` API does not exist yet (`rbac/module_map.py` is absent; the backend plan is headed "not started"), so when it ships the swap is confined to the infrastructure layer. An "All permissions" view over the live 193-codename catalogue is the escape hatch for the 132 the map does not cover.
+- ✅ **Round-trip fidelity is the property everything rests on.** `permissionsToSubmit(selectionFromPermissions(P), unmappedPermissions(P))` set-equals `P` for any `P`, so opening a role and saving it unchanged is a no-op on the server. `unmappedPermissions` is defined as "what the module view will not reproduce", **not** "codenames the map never mentions" — the latter misses codenames that appear in the map but complete no capability (a role with `e_commerce.change_stock` but no `rbac.access_admin_portal`), and would silently revoke them.
+- ✅ **Subtractive revoke is unrepresentable**, not merely avoided: the save body is re-expanded from the surviving selection rather than diffed, so a shared codename is re-derived by whichever capability still names it. Verified exhaustively — zero collateral across every capability against thousands of selections. Around 11% of unticks are *ineffective* (another ticked capability still grants it), which the builder says out loud.
 - **Roles list** — `GET roles/`, `custom_only` toggle, `user_count`/`permission_count` columns. Create/edit/delete gated on `manageRoles`; the list itself only needs `assignRoles` (§E).
-- **Role builder** — catalogue from `GET permissions/`, one section per `group.label` with "Special actions" first, checkbox per permission. `is_dangerous` opens a confirm showing the server's `warning`. `name` is a create-only field with the `^[a-z][a-z0-9_]*$` hint and permanence note; edit exposes `label`/`description`/`permissions` only. **Edit submits the full permission set**, never a delta.
+- ✅ **Role builder** — module/capability grid by default, raw catalogue behind a tab. `is_dangerous` opens a confirm showing the server's `warning` **read from the live catalogue**, never a hardcoded list (the doc and `constants.py` say four dangerous permissions; the live server returned three). `name` is create-only with the `^[a-z][a-z0-9_]*$` hint and permanence note; edit exposes `label`/`description`/`permissions`/`is_active`. **Edit submits the full permission set**, never a delta.
 - **Delete** — on `409`, read `details.user_count`, confirm, retry with `?force=true`. `is_system` roles show delete disabled with a reason, not an error.
 - **Role members** — `roles/{id}/users/` list plus bulk `assign/` / `unassign/`, gated on `assignRoles`.
 
@@ -179,10 +210,15 @@ Also captured because the live payloads carry them and the contract doc omits th
 - `UserRoleSection` becomes multi-select over active custom roles, showing base role separately as read-only, and its helper text changes from "access is predefined per role" to the union rule.
 - `ModuleAccessPanel` renders resolved permissions (grouped, from `users/{id}/` `effective_permissions`) instead of invented module names — or is dropped in favour of a link to the role.
 
-## Phase 5 — Users screen (blocked, §G)
+## Phase 5 — Users screen ✅ done
 
-Wire the list and detail to `rbac/users/` — search, `base_role` and `role` filters, server pagination — and the role editor to `set_roles/`. **Then decide with the backend** whether add/deactivate/delete users belong to another endpoint family or come out of the UI. Until that is settled, `name`, `avatar`, `createdBy`/`modifiedBy`, `activity`, `metrics` and `gods` have no source and should not be drawn from mocks alongside real fields.
+The list and detail were wired in Phase 4. Staff-account CRUD followed once §G
+turned out to be stale: create, edit, deactivate, reactivate and set-password
+are wired to the endpoints tabled above, with the base role editable through
+`PATCH role`. `avatar`, `createdBy`/`modifiedBy`, `activity`, `metrics` and
+`gods` remain undrawn — they have no source, and drawing them from mocks beside
+real fields is the specific hazard this integration removed.
 
 ## Sequencing
 
-Phase 1 stands alone and can ship immediately. Phases 2–4 are one deliverable — role management is useless in halves. Phase 5 waits on a backend answer; it does not block anything before it.
+Phase 1 stands alone and can ship immediately. Phases 2–4 are one deliverable — role management is useless in halves. Phase 5 is independent of them and needed no backend answer.

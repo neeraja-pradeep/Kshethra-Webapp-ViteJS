@@ -24,6 +24,10 @@ export const RBAC_ENDPOINTS = {
   unassignRole: (id: number) => `/rbac/roles/${id}/unassign/`,
   users: '/rbac/users/',
   user: (id: number) => `/rbac/users/${id}/`,
+  /** Hyphenated, unlike the underscored role-assignment actions below. */
+  activateUser: (id: number) => `/rbac/users/${id}/activate/`,
+  setUserPassword: (id: number) => `/rbac/users/${id}/set-password/`,
+  assignableRoles: '/rbac/users/assignable-roles/',
   assignUserRoles: (id: number) => `/rbac/users/${id}/assign_roles/`,
   removeUserRoles: (id: number) => `/rbac/users/${id}/remove_roles/`,
   setUserRoles: (id: number) => `/rbac/users/${id}/set_roles/`,

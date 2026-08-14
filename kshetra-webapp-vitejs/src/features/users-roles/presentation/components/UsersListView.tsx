@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-import { Spinner, type SelectOption } from '@/shared/ui'
+import { Button, Icon, Spinner, type SelectOption } from '@/shared/ui'
 import type { KpiItem } from '@/features/users-roles/presentation/utils/kpi'
 import { KpiBand } from '@/features/users-roles/presentation/components/KpiBand'
 import { PaginationBar } from '@/features/users-roles/presentation/components/PaginationBar'
@@ -17,6 +17,10 @@ export interface UsersListViewProps {
   filterBaseRole: string
   onFilterBaseRoleChange: (value: string) => void
   resultLabel: string
+
+  /** Creating an account is `manage_users` — a step above assigning roles. */
+  canCreate: boolean
+  onCreate: () => void
 
   kpis: readonly KpiItem[]
 
@@ -37,20 +41,22 @@ export interface UsersListViewProps {
 }
 
 /**
- * The Users & Roles list screen: header, filters, KPI band, table, pagination.
+ * The Users tab: filters, KPI band, table, pagination.
  *
- * No "Add user" button: the RBAC API is read plus role-assignment only, with
- * no endpoint that creates an account. Accounts arrive through devotee signup
- * or `temple_admin/register-poojari/`.
+ * The screen title and the Users/Roles tab strip live one level up, in
+ * `UsersRolesScreen`, so both tabs sit under one header rather than each
+ * drawing its own.
  */
 export function UsersListView(props: UsersListViewProps) {
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-sunken">
-      <div className="flex flex-shrink-0 items-start gap-4 px-7 pb-3.5 pt-6">
-        <div className="min-w-0 flex-1">
-          <h1 className="m-0 text-3xl font-heading leading-tight tracking-title text-ink-strong">Users &amp; Roles</h1>
-          <p className="m-0 mt-1.5 text-sm text-ink-muted">Login registry. Permissions come from the base role plus any assigned roles.</p>
-        </div>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex flex-shrink-0 items-center gap-2.5 px-7 pb-1 pt-3.5">
+        <div className="flex-1" />
+        {props.canCreate && (
+          <Button theme="primary" size="sm" iconLeft={<Icon name="plus" size={15} />} onClick={props.onCreate}>
+            Add user
+          </Button>
+        )}
       </div>
 
       <UsersFilterBar

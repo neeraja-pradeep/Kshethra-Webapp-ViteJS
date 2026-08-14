@@ -9,7 +9,14 @@ import type {
   RbacRole,
   UpdateRoleInput,
 } from '@/features/rbac/domain/entities/rbac-role'
-import type { RbacUser, RbacUserDetail, SetRolesOutcome } from '@/features/rbac/domain/entities/rbac-user'
+import type {
+  AssignableBaseRole,
+  CreateStaffUserInput,
+  RbacUser,
+  RbacUserDetail,
+  SetRolesOutcome,
+  UpdateStaffUserInput,
+} from '@/features/rbac/domain/entities/rbac-user'
 import type {
   Page,
   PermissionFilters,
@@ -17,9 +24,16 @@ import type {
   RoleFilters,
   UserFilters,
 } from '@/features/rbac/domain/repositories/rbac.repository'
+import { toAssignableBaseRoles } from '@/features/rbac/infrastructure/data-sources/remote/assignableRole.response'
 import { toPermissionCatalogue } from '@/features/rbac/infrastructure/data-sources/remote/permission.response'
 import {
+  toCreateStaffUserRequest,
+  toUpdateStaffUserRequest,
+} from '@/features/rbac/infrastructure/data-sources/remote/staffUser.request'
+import {
   deleteRole,
+  deleteStaffUser,
+  getAssignableRoles,
   getPermissions,
   getRole,
   getRoles,
@@ -27,11 +41,15 @@ import {
   getUser,
   getUsers,
   patchRole,
+  patchStaffUser,
+  postActivateUser,
   postAssignRole,
   postAssignUserRoles,
   postRemoveUserRoles,
   postRole,
+  postSetUserPassword,
   postSetUserRoles,
+  postStaffUser,
   postUnassignRole,
 } from '@/features/rbac/infrastructure/data-sources/remote/rbac.api'
 import {
@@ -179,6 +197,54 @@ export const rbacRepository: RbacRepository = {
   async setUserRoles(userId: number, roleIds: readonly number[]): Promise<Result<SetRolesOutcome>> {
     try {
       return ok(toSetRolesOutcome(await postSetUserRoles(userId, roleIds)))
+    } catch (error) {
+      return err(mapHttpError(error))
+    }
+  },
+
+  async fetchAssignableBaseRoles(): Promise<Result<readonly AssignableBaseRole[]>> {
+    try {
+      return ok(toAssignableBaseRoles(await getAssignableRoles()))
+    } catch (error) {
+      return err(mapHttpError(error))
+    }
+  },
+
+  async createStaffUser(input: CreateStaffUserInput): Promise<Result<RbacUserDetail>> {
+    try {
+      return ok(toRbacUserDetail(await postStaffUser(toCreateStaffUserRequest(input))))
+    } catch (error) {
+      return err(mapHttpError(error))
+    }
+  },
+
+  async updateStaffUser(id: number, changes: UpdateStaffUserInput): Promise<Result<RbacUserDetail>> {
+    try {
+      return ok(toRbacUserDetail(await patchStaffUser(id, toUpdateStaffUserRequest(changes))))
+    } catch (error) {
+      return err(mapHttpError(error))
+    }
+  },
+
+  async deactivateStaffUser(id: number): Promise<Result<RbacUserDetail>> {
+    try {
+      return ok(toRbacUserDetail(await deleteStaffUser(id)))
+    } catch (error) {
+      return err(mapHttpError(error))
+    }
+  },
+
+  async activateStaffUser(id: number): Promise<Result<RbacUserDetail>> {
+    try {
+      return ok(toRbacUserDetail(await postActivateUser(id)))
+    } catch (error) {
+      return err(mapHttpError(error))
+    }
+  },
+
+  async setStaffUserPassword(id: number, password: string): Promise<Result<RbacUserDetail>> {
+    try {
+      return ok(toRbacUserDetail(await postSetUserPassword(id, password)))
     } catch (error) {
       return err(mapHttpError(error))
     }

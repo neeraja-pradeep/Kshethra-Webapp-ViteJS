@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react'
+
 import { Alert, Button, Icon } from '@/shared/ui'
 import type { RbacUserDetail } from '@/features/rbac/domain/entities/rbac-user'
 import { EffectivePermissionsPanel } from '@/features/users-roles/presentation/components/EffectivePermissionsPanel'
@@ -10,19 +12,23 @@ export interface UserDetailViewProps {
   user: RbacUserDetail
   /** Whether the signed-in operator may change this user's roles. */
   canEditRoles: boolean
+  /** `manage_users` + `change_customuser` — editing identity and base role. */
+  canEditUser: boolean
   onClose: () => void
   onEditRoles: () => void
+  onEditUser: () => void
+  /** The lifecycle card, rendered by the screen so it owns the mutations. */
+  lifecycle?: ReactNode
 }
 
 /**
  * Read-first user detail: identity, roles, and the resolved permission set.
  *
  * The design's role-specific activity panels (counter takings, store
- * fulfilment, poojari schedule) and its account-lifecycle card are absent —
- * the registry exposes no metrics, and there is no endpoint that deactivates
- * or deletes an account. Both are tracked in the unbuilt-UI backlog.
+ * fulfilment, poojari schedule) are still absent — the registry exposes no
+ * metrics, and every number in them was prototype fiction.
  */
-export function UserDetailView({ user, canEditRoles, onClose, onEditRoles }: UserDetailViewProps) {
+export function UserDetailView({ user, canEditRoles, canEditUser, onClose, onEditRoles, onEditUser, lifecycle }: UserDetailViewProps) {
   return (
     <div className="absolute inset-0 z-20 flex flex-col bg-sunken">
       <ScreenTopBar
@@ -32,6 +38,11 @@ export function UserDetailView({ user, canEditRoles, onClose, onEditRoles }: Use
         right={
           <>
             <StatusBadge status={user.isActive ? 'Active' : 'Inactive'} />
+            {canEditUser && (
+              <Button theme="default" variant="outline" size="sm" onClick={onEditUser} iconLeft={<Icon name="user-gear" size={14} />}>
+                Edit account
+              </Button>
+            )}
             {canEditRoles && (
               <Button theme="default" variant="outline" size="sm" onClick={onEditRoles} iconLeft={<Icon name="pencil-simple" size={14} />}>
                 Edit roles
@@ -49,9 +60,11 @@ export function UserDetailView({ user, canEditRoles, onClose, onEditRoles }: Use
 
           {!user.isActive && (
             <Alert type="warning" icon={<Icon name="warning" size={16} />}>
-              This account is deactivated and cannot sign in. Reactivating it is not available through this API.
+              This account is deactivated and cannot sign in.
             </Alert>
           )}
+
+          {lifecycle}
         </div>
       </div>
     </div>

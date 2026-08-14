@@ -6,10 +6,18 @@ import {
   permissionCatalogueResponseSchema,
   type PermissionCatalogueResponseDto,
 } from '@/features/rbac/infrastructure/data-sources/remote/permission.response'
+import {
+  assignableRolesResponseSchema,
+  type AssignableRolesResponseDto,
+} from '@/features/rbac/infrastructure/data-sources/remote/assignableRole.response'
 import type {
   CreateRoleRequestDto,
   UpdateRoleRequestDto,
 } from '@/features/rbac/infrastructure/data-sources/remote/role.request'
+import type {
+  CreateStaffUserRequestDto,
+  UpdateStaffUserRequestDto,
+} from '@/features/rbac/infrastructure/data-sources/remote/staffUser.request'
 import {
   deleteRoleResponseSchema,
   roleResponseSchema,
@@ -146,4 +154,42 @@ export async function postRemoveUserRoles(userId: number, roleIds: readonly numb
 export async function postSetUserRoles(userId: number, roleIds: readonly number[]): Promise<SetRolesResponseDto> {
   const response = await http.post(RBAC_ENDPOINTS.setUserRoles(userId), { role_ids: roleIds })
   return setRolesResponseSchema.parse(response.data)
+}
+
+export async function getAssignableRoles(): Promise<AssignableRolesResponseDto> {
+  const response = await http.get(RBAC_ENDPOINTS.assignableRoles)
+  return assignableRolesResponseSchema.parse(response.data)
+}
+
+/**
+ * The five staff-account writes.
+ *
+ * All of them answer with the full user detail, including the recomputed
+ * `effective_permissions`, so callers can seed the detail cache from the
+ * response instead of refetching.
+ */
+export async function postStaffUser(body: CreateStaffUserRequestDto): Promise<RbacUserDetailResponseDto> {
+  const response = await http.post(RBAC_ENDPOINTS.users, body)
+  return rbacUserDetailResponseSchema.parse(response.data)
+}
+
+export async function patchStaffUser(id: number, body: UpdateStaffUserRequestDto): Promise<RbacUserDetailResponseDto> {
+  const response = await http.patch(RBAC_ENDPOINTS.user(id), body)
+  return rbacUserDetailResponseSchema.parse(response.data)
+}
+
+/** DELETE deactivates and keeps the row, so it answers with the user, not 204. */
+export async function deleteStaffUser(id: number): Promise<RbacUserDetailResponseDto> {
+  const response = await http.delete(RBAC_ENDPOINTS.user(id))
+  return rbacUserDetailResponseSchema.parse(response.data)
+}
+
+export async function postActivateUser(id: number): Promise<RbacUserDetailResponseDto> {
+  const response = await http.post(RBAC_ENDPOINTS.activateUser(id))
+  return rbacUserDetailResponseSchema.parse(response.data)
+}
+
+export async function postSetUserPassword(id: number, password: string): Promise<RbacUserDetailResponseDto> {
+  const response = await http.post(RBAC_ENDPOINTS.setUserPassword(id), { password })
+  return rbacUserDetailResponseSchema.parse(response.data)
 }

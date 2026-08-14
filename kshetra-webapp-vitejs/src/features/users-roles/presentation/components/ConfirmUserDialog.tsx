@@ -1,6 +1,6 @@
 import { Button, Modal } from '@/shared/ui'
 
-export type ConfirmKind = 'discard' | 'deactivate' | 'delete'
+export type ConfirmKind = 'discard' | 'deactivate' | 'reactivate'
 
 export interface ConfirmUserDialogProps {
   open: boolean
@@ -13,10 +13,16 @@ const COPY: Record<ConfirmKind, { title: string; body: string; action: string }>
   discard: { title: 'Discard changes?', body: 'Your unsaved changes to this user will be lost.', action: 'Discard' },
   deactivate: {
     title: 'Deactivate user?',
-    body: 'This revokes their login immediately. Their record and history are preserved, and they can be reactivated later.',
+    body: 'This revokes their sign-in immediately. Their record and history are preserved, and they can be reactivated later.',
     action: 'Deactivate',
   },
-  delete: { title: 'Delete user?', body: 'This permanently removes the user from the registry. This can’t be undone.', action: 'Delete' },
+  // Not "delete": the RBAC API has no destructive removal. DELETE deactivates
+  // and keeps the row so past counter activity stays attributable.
+  reactivate: {
+    title: 'Reactivate user?',
+    body: 'They will be able to sign in again with their existing password and roles.',
+    action: 'Reactivate',
+  },
 }
 
 /** Shared confirm modal for discard / deactivate / delete — the only difference is copy. */
@@ -33,7 +39,7 @@ export function ConfirmUserDialog({ open, kind, onConfirm, onCancel }: ConfirmUs
           <Button theme="default" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button theme="danger" onClick={onConfirm}>
+          <Button theme={kind === 'reactivate' ? 'primary' : 'danger'} onClick={onConfirm}>
             {copy?.action ?? 'Confirm'}
           </Button>
         </div>

@@ -28,7 +28,13 @@ export interface RbacUser {
    * searchable only. Verified against the live endpoint.
    */
   readonly phone: string
-  /** `temple_user` | `temple_poojari` | `temple_admin`. Not changeable through this API. */
+  /**
+   * `temple_user` | `temple_poojari` | `temple_admin`, and the staff roles.
+   *
+   * Editable through `PATCH users/{id}/`, which re-syncs the account's groups
+   * in one step. Saving it grants the new role's permissions and revokes the
+   * previous role's — it is not additive, unlike `assignedRoles`.
+   */
   readonly baseRole: string
   /** Custom roles only — the base role is `baseRole`. */
   readonly assignedRoles: readonly AssignedRole[]
@@ -60,4 +66,42 @@ export function rolesLabel(user: RbacUser): string {
   if (user.isSuperuser) return 'Superuser'
   if (user.assignedRoles.length > 0) return user.assignedRoles.map((role) => role.label).join(', ')
   return user.baseRole
+}
+
+/** One option in the base-role dropdown, from `users/assignable-roles/`. */
+export interface AssignableBaseRole {
+  readonly name: string
+  readonly label: string
+  readonly description: string
+}
+
+/**
+ * Body for `POST users/`.
+ *
+ * `username` is the sign-in identifier and cannot be changed afterwards, so it
+ * only appears here. `password` has its own endpoint for the same reason in
+ * reverse: a routine profile edit must not be able to change it by accident.
+ */
+export interface CreateStaffUserInput {
+  readonly username: string
+  readonly password: string
+  /** One of the staff roles — this screen staffs the temple, it does not mint devotees. */
+  readonly role: string
+  readonly email?: string
+  readonly phoneNumber?: string
+  readonly firstName?: string
+  readonly lastName?: string
+  readonly isActive?: boolean
+  /** Poojari accounts only; generated when left blank. Rejected for any other role. */
+  readonly employeeId?: string
+}
+
+/** Body for `PATCH users/{id}/`. No `username` — it is permanent. */
+export interface UpdateStaffUserInput {
+  readonly role?: string
+  readonly email?: string
+  readonly phoneNumber?: string
+  readonly firstName?: string
+  readonly lastName?: string
+  readonly isActive?: boolean
 }

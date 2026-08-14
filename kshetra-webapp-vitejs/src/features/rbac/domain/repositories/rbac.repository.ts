@@ -6,7 +6,14 @@ import type {
   RbacRole,
   UpdateRoleInput,
 } from '@/features/rbac/domain/entities/rbac-role'
-import type { RbacUser, RbacUserDetail, SetRolesOutcome } from '@/features/rbac/domain/entities/rbac-user'
+import type {
+  AssignableBaseRole,
+  CreateStaffUserInput,
+  RbacUser,
+  RbacUserDetail,
+  SetRolesOutcome,
+  UpdateStaffUserInput,
+} from '@/features/rbac/domain/entities/rbac-user'
 
 export interface PermissionFilters {
   /** Matches name, codename or model. */
@@ -66,4 +73,13 @@ export interface RbacRepository {
   removeUserRoles(userId: number, roleIds: readonly number[]): Promise<Result<RbacUserDetail>>
   /** Replaces the whole set; `[]` clears it. Reports the delta. */
   setUserRoles(userId: number, roleIds: readonly number[]): Promise<Result<SetRolesOutcome>>
+
+  /** The staff roles the base-role dropdown may offer. Needs `manage_users`. */
+  fetchAssignableBaseRoles(): Promise<Result<readonly AssignableBaseRole[]>>
+  createStaffUser(input: CreateStaffUserInput): Promise<Result<RbacUserDetail>>
+  updateStaffUser(id: number, changes: UpdateStaffUserInput): Promise<Result<RbacUserDetail>>
+  /** Deactivates. The row is kept so past activity stays attributable. */
+  deactivateStaffUser(id: number): Promise<Result<RbacUserDetail>>
+  activateStaffUser(id: number): Promise<Result<RbacUserDetail>>
+  setStaffUserPassword(id: number, password: string): Promise<Result<RbacUserDetail>>
 }

@@ -14,6 +14,7 @@ export const rbacKeys = {
   roleUsers: (id: number, page?: number) => [...rbacKeys.role(id), 'users', page ?? 1] as const,
 
   users: () => [...rbacKeys.all, 'users'] as const,
+  assignableBaseRoles: () => [...rbacKeys.users(), 'assignable-base-roles'] as const,
   userList: (filters: UserFilters) => [...rbacKeys.users(), 'list', filters] as const,
   user: (id: number) => [...rbacKeys.users(), 'detail', id] as const,
 }
