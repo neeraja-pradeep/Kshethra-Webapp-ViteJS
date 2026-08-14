@@ -75,5 +75,66 @@ export const NAV: NavItem[] = [
 
   { id: 'agent-code', label: 'Agent code', icon: 'identification-badge', path: '/agent-codes', desc: 'Booking-agent codes and attribution.', roles: ['Admin', 'Manager'], group: 4 },
   { id: 'reports', label: 'Reports', icon: 'chart-bar', path: '/reports', desc: 'Financial reconciliation and reports.', roles: ['Admin', 'Manager'], group: 4 },
-  { id: 'users-roles', label: 'Users & Roles', icon: 'users-three', path: '/users-roles', desc: 'Employee and login registry.', roles: ['Admin'], permissions: [PERMISSIONS.manageRoles], group: 4 },
+  { id: 'users-roles', label: 'Users & Roles', icon: 'users-three', path: '/users-roles', desc: 'Employee and login registry.', roles: ['Admin'], permissions: [PERMISSIONS.assignRoles, PERMISSIONS.viewCustomuser], group: 4 },
 ]
+
+/** True when the signed-in user holds every codename this entry declares. */
+function isEntryVisible(entry: NavItem | NavLeaf, can: (permission: string) => boolean): boolean {
+  return (entry.permissions ?? []).every(can)
+}
+
+/**
+ * The NAV entries the signed-in user may actually reach.
+ *
+ * A group disappears once every one of its children does — an empty expander is
+ * worse than no expander. Shared by the sidebar and the post-login landing
+ * redirect so the rail and the router can never disagree about what exists.
+ */
+export function visibleNav(can: (permission: string) => boolean): NavItem[] {
+  return NAV.filter((item) => isEntryVisible(item, can)).flatMap<NavItem>((item) => {
+    if (!item.children) return [item]
+    const children = item.children.filter((child) => isEntryVisible(child, can))
+    return children.length > 0 ? [{ ...item, children }] : []
+  })
+}
+
+/**
+ * Path -> every codename that path requires. A child inherits its group's gate,
+ * because the group is the only way to reach it.
+ */
+const PATH_PERMISSIONS: Readonly<Record<string, readonly string[]>> = (() => {
+  const map: Record<string, readonly string[]> = {}
+  for (const item of NAV) {
+    const own = item.permissions ?? []
+    if (item.path) map[item.path] = own
+    for (const child of item.children ?? []) {
+      map[child.path] = [...own, ...(child.permissions ?? [])]
+    }
+  }
+  return map
+})()
+
+/**
+ * The gate a route must apply, read from the same NAV entry the sidebar reads.
+ *
+ * Hiding an entry from the rail while leaving its URL open is worse than not
+ * gating at all: the screen renders as if the user were entitled to it.
+ */
+export function permissionsForPath(path: string): readonly string[] {
+  const permissions = PATH_PERMISSIONS[path]
+  if (permissions) return permissions
+  // A module route with no NAV entry is the very drift this lookup exists to
+  // prevent: it would mount completely ungated, and silently.
+  if (import.meta.env.DEV) console.warn(`[nav] "${path}" has no NAV entry — the route will mount ungated.`)
+  return []
+}
+
+/** Where to send someone after sign-in: their first reachable destination. */
+export function firstVisiblePath(can: (permission: string) => boolean): string | null {
+  for (const item of visibleNav(can)) {
+    if (item.path) return item.path
+    const child = item.children?.[0]
+    if (child) return child.path
+  }
+  return null
+}

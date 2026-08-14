@@ -1,493 +1,234 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import { toFailure } from '@/core/error/result'
 import type { SelectOption } from '@/shared/ui'
-import type { God } from '@/features/users-roles/domain/entities/god'
-import type { UserStatus, User } from '@/features/users-roles/domain/entities/user'
-import { ConfirmUserDialog, type ConfirmKind } from '@/features/users-roles/presentation/components/ConfirmUserDialog'
+
+import { PERMISSIONS } from '@/features/auth/application/hooks/permissions'
+import { useCan } from '@/features/auth/application/hooks/useCan'
+import { useSetUserRolesMutation } from '@/features/rbac/application/queries/useRbacMutations'
+import { useRbacUserQuery, useRbacUsersQuery, useRolesQuery } from '@/features/rbac/application/queries/useRbacQueries'
+import { isAssignable } from '@/features/rbac/domain/entities/rbac-role'
 import { EmptyFilteredMessage } from '@/features/users-roles/presentation/components/EmptyFilteredMessage'
 import { UserDetailView } from '@/features/users-roles/presentation/components/UserDetailView'
-import { UserFormView, type UserFormErrors } from '@/features/users-roles/presentation/components/UserFormView'
-import { UserToast } from '@/features/users-roles/presentation/components/UserToast'
+import { UserRolesEditor } from '@/features/users-roles/presentation/components/UserRolesEditor'
 import { UsersListView } from '@/features/users-roles/presentation/components/UsersListView'
-import type { SortDir, SortKey, UserRow } from '@/features/users-roles/presentation/components/UsersTable'
-import { GODS } from '@/features/users-roles/presentation/data/gods.mock'
-import { ROLES } from '@/features/users-roles/presentation/data/roles.mock'
-import { USERS } from '@/features/users-roles/presentation/data/users.mock'
-import { todayISO } from '@/features/users-roles/presentation/utils/date'
-import { buildStatusKpis } from '@/features/users-roles/presentation/utils/kpi'
-import { findGodName, findRole, normalizePhone } from '@/features/users-roles/presentation/utils/roles'
+import type { UserRow } from '@/features/users-roles/presentation/components/UsersTable'
+import { UserToast } from '@/features/users-roles/presentation/components/UserToast'
+import type { KpiItem } from '@/features/users-roles/presentation/utils/kpi'
+import { baseRoleLabel } from '@/features/users-roles/presentation/utils/roles'
 
 const PAGE_SIZES = [20, 50, 100]
-const ACTOR = 'Admin'
+const DEFAULT_PAGE_SIZE = 20
+/** Long enough that typing a name is one request, short enough to feel live. */
+const SEARCH_DEBOUNCE_MS = 300
+const TOAST_MS = 2400
 
-type ViewMode = 'list' | 'detail' | 'form'
-type FormMode = 'add' | 'edit'
+const ALL = 'all'
+const BASE_ROLES = ['temple_user', 'temple_poojari', 'temple_admin'] as const
 
-interface FormState {
-  id: string | null
-  name: string
-  email: string
-  phone: string
-  avatar: string | null
-  roleId: string
-  status: UserStatus
-  gods: string[]
-}
-
-function blankForm(): FormState {
-  return { id: null, name: '', email: '', phone: '', avatar: null, roleId: '', status: 'Active', gods: [] }
-}
-
-const ROLE_OPTIONS: SelectOption[] = ROLES.map((r) => ({ value: r.id, label: r.label }))
-const ROLE_FILTER_OPTIONS: SelectOption[] = [{ value: 'all', label: 'All roles' }, ...ROLE_OPTIONS]
-const STATUS_FILTER_OPTIONS: SelectOption[] = [
-  { value: 'all', label: 'All statuses' },
-  { value: 'Active', label: 'Active' },
-  { value: 'Inactive', label: 'Inactive' },
+const BASE_ROLE_FILTER_OPTIONS: SelectOption[] = [
+  { value: ALL, label: 'All base roles' },
+  ...BASE_ROLES.map((role) => ({ value: role, label: baseRoleLabel(role) })),
 ]
 const PAGE_SIZE_OPTIONS: SelectOption[] = PAGE_SIZES.map((n) => ({ value: String(n), label: `${n} / page` }))
 
-/** Users & Roles — the employee/login registry list, detail, and add/edit form. */
+type ViewMode = 'list' | 'detail' | 'roles'
+
+/**
+ * Users & Roles — the login registry, backed by `rbac/users/`.
+ *
+ * Search, role and base-role filters and pagination are all server-side; the
+ * screen holds no copy of the user list. The design's status filter and column
+ * sorting are absent because `rbac/users/` ignores `is_active` and `ordering`,
+ * and filtering one page client-side would read as filtering all of them.
+ */
 export function UsersRolesScreen() {
-  const [users, setUsers] = useState<User[]>(USERS)
+  const can = useCan()
+  const canAssignRoles = can(PERMISSIONS.assignRoles)
 
   const [search, setSearch] = useState('')
-  const [filterRole, setFilterRole] = useState('all')
-  const [filterStatus, setFilterStatus] = useState('all')
-  const [page, setPage] = useState(0)
-  const [pageSize, setPageSize] = useState(20)
-  const [sortKey, setSortKey] = useState<SortKey | ''>('')
-  const [sortDir, setSortDir] = useState<SortDir>('asc')
-  const [loading, setLoading] = useState(false)
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [filterRole, setFilterRole] = useState(ALL)
+  const [filterBaseRole, setFilterBaseRole] = useState(ALL)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
 
   const [view, setView] = useState<ViewMode>('list')
-  const [openId, setOpenId] = useState<string | null>(null)
-
-  const [formMode, setFormMode] = useState<FormMode>('add')
-  const [form, setForm] = useState<FormState>(blankForm())
-  const [errors, setErrors] = useState<UserFormErrors>({})
-  const [godPickerOpen, setGodPickerOpen] = useState(false)
-  const formSignature = useRef<string | null>(null)
-
-  const [confirm, setConfirm] = useState<{ open: boolean; kind: ConfirmKind | null }>({ open: false, kind: null })
+  const [openId, setOpenId] = useState<number | null>(null)
+  const [selectedRoleIds, setSelectedRoleIds] = useState<readonly number[]>([])
   const [toast, setToast] = useState<{ show: boolean; message: string }>({ show: false, message: '' })
-
-  const pulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(
-    () => () => {
-      if (pulseTimer.current) clearTimeout(pulseTimer.current)
-      if (toastTimer.current) clearTimeout(toastTimer.current)
-    },
-    [],
-  )
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+  }, [search])
 
-  function pulse() {
-    setLoading(true)
-    if (pulseTimer.current) clearTimeout(pulseTimer.current)
-    pulseTimer.current = setTimeout(() => setLoading(false), 240)
-  }
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current) }, [])
 
   function showToast(message: string) {
     setToast({ show: true, message })
     if (toastTimer.current) clearTimeout(toastTimer.current)
-    toastTimer.current = setTimeout(() => setToast({ show: false, message: '' }), 2400)
+    toastTimer.current = setTimeout(() => setToast({ show: false, message: '' }), TOAST_MS)
   }
 
-  const godsList: readonly God[] = GODS
+  const usersQuery = useRbacUsersQuery({
+    ...(debouncedSearch ? { search: debouncedSearch } : {}),
+    ...(filterRole === ALL ? {} : { role: filterRole }),
+    ...(filterBaseRole === ALL ? {} : { baseRole: filterBaseRole }),
+    page,
+    pageSize,
+  })
 
-  const filtersActive = search.trim() !== '' || filterRole !== 'all' || filterStatus !== 'all'
-
-  const filteredUsers = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    const base = users.filter((u) => {
-      if (filterRole !== 'all' && u.roleId !== filterRole) return false
-      if (filterStatus !== 'all' && u.status !== filterStatus) return false
-      if (q) {
-        const haystack = `${u.name} ${u.email} ${u.phone} ${findRole(u.roleId).label}`.toLowerCase()
-        if (!haystack.includes(q)) return false
-      }
-      return true
-    })
-    base.sort((a, b) => a.name.localeCompare(b.name))
-    return base
-  }, [users, search, filterRole, filterStatus])
-
-  const sortedUsers = useMemo(() => {
-    if (!sortKey) return filteredUsers
-    const sd = sortDir === 'desc' ? -1 : 1
-    const sortValue = (u: User): string => {
-      if (sortKey === 'roleLabel') return findRole(u.roleId).label
-      if (sortKey === 'status') return u.status
-      return u.name
-    }
-    return [...filteredUsers].sort((a, b) => sd * sortValue(a).localeCompare(sortValue(b), undefined, { numeric: true }))
-  }, [filteredUsers, sortKey, sortDir])
-
-  const total = sortedUsers.length
-  const pageCount = Math.max(1, Math.ceil(total / pageSize))
-  const currentPage = Math.min(page, pageCount - 1)
-
-  const pageRows: UserRow[] = useMemo(
-    () =>
-      sortedUsers.slice(currentPage * pageSize, currentPage * pageSize + pageSize).map((u) => ({
-        id: u.id,
-        name: u.name,
-        email: u.email,
-        avatar: u.avatar,
-        roleId: u.roleId,
-        roleLabel: findRole(u.roleId).label,
-        status: u.status,
-      })),
-    [sortedUsers, currentPage, pageSize],
+  /** Custom roles only — the three built-ins can never be assigned as extras. */
+  const rolesQuery = useRolesQuery({ customOnly: true, pageSize: 100 })
+  const assignableRoles = useMemo(
+    () => (rolesQuery.data?.results ?? []).filter(isAssignable),
+    [rolesQuery.data],
   )
 
-  const kpis = useMemo(() => buildStatusKpis(filteredUsers, 'users'), [filteredUsers])
+  const detailQuery = useRbacUserQuery(view === 'list' ? null : openId)
+  const setRoles = useSetUserRolesMutation()
 
-  const resultLabel = filtersActive ? `${total} of ${users.length} users` : `${total} ${total === 1 ? 'user' : 'users'}`
-  const pageInfo = total ? `Showing ${currentPage * pageSize + 1}–${Math.min(total, (currentPage + 1) * pageSize)} of ${total} users` : 'No users'
-  const pageLabel = `Page ${currentPage + 1} of ${pageCount}`
+  const roleFilterOptions: SelectOption[] = useMemo(
+    () => [
+      { value: ALL, label: 'All roles' },
+      ...(rolesQuery.data?.results ?? []).map((role) => ({ value: role.name, label: role.label })),
+    ],
+    [rolesQuery.data],
+  )
+
+  const total = usersQuery.data?.count ?? 0
+  const pageCount = Math.max(1, Math.ceil(total / pageSize))
+
+  const rows: readonly UserRow[] = useMemo(
+    () =>
+      (usersQuery.data?.results ?? []).map((user) => ({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        phone: user.phone,
+        baseRole: user.baseRole,
+        roles: user.assignedRoles.map((role) => ({ name: role.name, label: role.label })),
+        isActive: user.isActive,
+      })),
+    [usersQuery.data],
+  )
+
+  /**
+   * Both tiles are server totals. The design's Active/Inactive breakdown is
+   * gone: the registry returns no status counts, and counting the loaded page
+   * would report a page total as if it were the whole registry.
+   */
+  const kpis: readonly KpiItem[] = useMemo(
+    () => [
+      { key: 'total', value: String(total), label: total === 1 ? 'user' : 'users' },
+      { key: 'roles', value: String(rolesQuery.data?.count ?? 0), label: 'custom roles' },
+    ],
+    [total, rolesQuery.data],
+  )
+
+  const filtersActive = debouncedSearch !== '' || filterRole !== ALL || filterBaseRole !== ALL
+  const resultLabel = filtersActive ? `${total} matching` : `${total} ${total === 1 ? 'user' : 'users'}`
+  const firstOnPage = total === 0 ? 0 : (page - 1) * pageSize + 1
+  const pageInfo = total ? `Showing ${firstOnPage}–${Math.min(total, page * pageSize)} of ${total} users` : 'No users'
 
   function handleClearFilters() {
     setSearch('')
-    setFilterRole('all')
-    setFilterStatus('all')
-    setPage(0)
-    pulse()
+    setDebouncedSearch('')
+    setFilterRole(ALL)
+    setFilterBaseRole(ALL)
+    setPage(1)
   }
 
-  const emptyContent = filtersActive ? <EmptyFilteredMessage message="No users match your filters." onClearFilters={handleClearFilters} /> : 'No users yet.'
-
-  function handleSearchChange(value: string) {
-    setSearch(value)
-    setPage(0)
-    pulse()
-  }
-  function handleFilterRoleChange(value: string) {
-    setFilterRole(value)
-    setPage(0)
-    pulse()
-  }
-  function handleFilterStatusChange(value: string) {
-    setFilterStatus(value)
-    setPage(0)
-    pulse()
-  }
-  function handleSort(key: SortKey) {
-    setSortDir((prevDir) => (sortKey === key && prevDir === 'asc' ? 'desc' : 'asc'))
-    setSortKey(key)
-    setPage(0)
-  }
-  function handlePrev() {
-    setPage((p) => Math.max(0, p - 1))
-  }
-  function handleNext() {
-    setPage((p) => Math.min(pageCount - 1, p + 1))
-  }
-  function handlePageSizeChange(size: number) {
-    setPageSize(size)
-    setPage(0)
-  }
-
-  const openUser = users.find((u) => u.id === openId) ?? null
-  const openRole = openUser ? findRole(openUser.roleId) : null
+  const loadError = usersQuery.isError ? (toFailure(usersQuery.error)?.message ?? 'Could not load users.') : null
+  const emptyContent = loadError ?? (filtersActive
+    ? <EmptyFilteredMessage message="No users match your filters." onClearFilters={handleClearFilters} />
+    : 'No users yet.')
 
   function handleRowClick(row: UserRow) {
-    setView('detail')
     setOpenId(row.id)
+    setView('detail')
   }
+
   function handleCloseDetail() {
     setView('list')
     setOpenId(null)
   }
 
-  function handleAdd() {
-    const f = blankForm()
-    formSignature.current = JSON.stringify(f)
-    setForm(f)
-    setFormMode('add')
-    setErrors({})
-    setGodPickerOpen(false)
-    setView('form')
-  }
-  function handleEditUser() {
-    if (!openUser) return
-    const f: FormState = {
-      id: openUser.id,
-      name: openUser.name,
-      email: openUser.email,
-      phone: openUser.phone,
-      avatar: openUser.avatar,
-      roleId: openUser.roleId,
-      status: openUser.status,
-      gods: [...openUser.gods],
-    }
-    formSignature.current = JSON.stringify(f)
-    setForm(f)
-    setFormMode('edit')
-    setErrors({})
-    setGodPickerOpen(false)
-    setView('form')
-  }
-  function handleCancelForm() {
-    const dirty = formSignature.current !== null && JSON.stringify(form) !== formSignature.current
-    if (dirty && !confirm.open) {
-      setConfirm({ open: true, kind: 'discard' })
-      return
-    }
-    formSignature.current = null
-    setGodPickerOpen(false)
-    if (formMode === 'edit' && form.id) {
-      setView('detail')
-      setOpenId(form.id)
-    } else {
-      setView('list')
-    }
+  function handleEditRoles() {
+    setSelectedRoleIds((detailQuery.data?.assignedRoles ?? []).map((role) => role.id))
+    setRoles.reset()
+    setView('roles')
   }
 
-  function setFormField<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setForm((f) => ({ ...f, [key]: value }))
-    setErrors((e) => ({ ...e, [key]: undefined }))
+  function handleToggleRole(roleId: number) {
+    setSelectedRoleIds((ids) => (ids.includes(roleId) ? ids.filter((id) => id !== roleId) : [...ids, roleId]))
   }
 
-  function handlePictureSelect(file: File) {
-    const reader = new FileReader()
-    reader.onload = () => {
-      if (typeof reader.result === 'string') setFormField('avatar', reader.result)
-    }
-    reader.readAsDataURL(file)
+  async function handleSaveRoles() {
+    if (openId === null) return
+    const outcome = await setRoles.mutateAsync({ userId: openId, roleIds: selectedRoleIds }).catch(() => null)
+    if (!outcome) return
+    const { added, removed } = outcome
+    const summary = added.length || removed.length
+      ? [added.length ? `+${added.length}` : '', removed.length ? `−${removed.length}` : ''].filter(Boolean).join(' ')
+      : 'no change'
+    showToast(`Roles updated (${summary})`)
+    setView('detail')
   }
-  function handleRemovePicture() {
-    setFormField('avatar', null)
-  }
-  function handleStatusToggle() {
-    setForm((f) => ({ ...f, status: f.status === 'Active' ? 'Inactive' : 'Active' }))
-  }
-  function handleToggleGodPicker() {
-    setGodPickerOpen((v) => !v)
-  }
-  function handleCloseGodPicker() {
-    setGodPickerOpen(false)
-  }
-  function handleToggleGod(godId: string) {
-    setForm((f) => {
-      const has = f.gods.includes(godId)
-      return { ...f, gods: has ? f.gods.filter((g) => g !== godId) : [...f.gods, godId] }
-    })
-  }
-  function handleRemoveGod(godId: string) {
-    setForm((f) => ({ ...f, gods: f.gods.filter((g) => g !== godId) }))
-  }
-
-  function handleSaveForm() {
-    const nextErrors: UserFormErrors = {}
-    const name = form.name.trim()
-    if (!name) nextErrors.name = 'Name is required'
-    const email = form.email.trim()
-    if (!email) nextErrors.email = 'Email is required'
-    else if (email.indexOf('@') < 1 || email.indexOf('.') < 0) nextErrors.email = 'Enter a valid email'
-    else if (users.some((u) => u.id !== form.id && u.email.toLowerCase() === email.toLowerCase())) nextErrors.email = 'This email is already registered'
-    const phone = form.phone.trim()
-    if (!phone) nextErrors.phone = 'Phone is required'
-    else if (users.some((u) => u.id !== form.id && normalizePhone(u.phone) === normalizePhone(phone))) nextErrors.phone = 'This phone is already registered'
-    if (!form.roleId) nextErrors.roleId = 'Select a role'
-
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors)
-      return
-    }
-
-    const isPoojari = findRole(form.roleId).kind === 'poojari'
-    const gods = isPoojari ? form.gods : []
-    const today = todayISO()
-
-    if (formMode === 'add') {
-      let max = 0
-      for (const u of users) {
-        const n = parseInt(u.id.replace(/\D/g, ''), 10)
-        if (n > max) max = n
-      }
-      const newUser: User = {
-        id: `U-${max + 1}`,
-        name,
-        email,
-        phone,
-        avatar: form.avatar,
-        roleId: form.roleId,
-        status: form.status,
-        gods,
-        createdBy: ACTOR,
-        createdAt: today,
-        modifiedBy: ACTOR,
-        modifiedAt: today,
-        activity: 0,
-        metrics: {},
-      }
-      setUsers((list) => [...list, newUser])
-      setErrors({})
-      formSignature.current = null
-      setView('list')
-      showToast('User added')
-    } else {
-      const id = form.id
-      setUsers((list) =>
-        list.map((u) => (u.id === id ? { ...u, name, email, phone, avatar: form.avatar, roleId: form.roleId, status: form.status, gods, modifiedBy: ACTOR, modifiedAt: today } : u)),
-      )
-      setErrors({})
-      formSignature.current = null
-      setView('detail')
-      setOpenId(id)
-      showToast('User updated')
-    }
-  }
-
-  function handleAskDeactivate() {
-    setConfirm({ open: true, kind: 'deactivate' })
-  }
-  function handleReactivate() {
-    const id = openId
-    const name = openUser?.name ?? 'User'
-    setUsers((list) => list.map((u) => (u.id === id ? { ...u, status: 'Active', modifiedBy: ACTOR, modifiedAt: todayISO() } : u)))
-    showToast(`${name} reactivated`)
-  }
-  function handleAskDelete() {
-    setConfirm({ open: true, kind: 'delete' })
-  }
-  function handleConfirmNo() {
-    setConfirm({ open: false, kind: null })
-  }
-  function handleConfirmYes() {
-    if (confirm.kind === 'discard') {
-      formSignature.current = null
-      setGodPickerOpen(false)
-      if (formMode === 'edit' && form.id) {
-        setView('detail')
-        setOpenId(form.id)
-      } else {
-        setView('list')
-      }
-      setConfirm({ open: false, kind: null })
-      return
-    }
-    const id = openId
-    const name = openUser?.name ?? 'User'
-    if (confirm.kind === 'deactivate') {
-      setUsers((list) => list.map((u) => (u.id === id ? { ...u, status: 'Inactive', modifiedBy: ACTOR, modifiedAt: todayISO() } : u)))
-      setConfirm({ open: false, kind: null })
-      showToast(`${name} deactivated`)
-    } else if (confirm.kind === 'delete') {
-      setUsers((list) => list.filter((u) => u.id !== id))
-      setConfirm({ open: false, kind: null })
-      setView('list')
-      setOpenId(null)
-      showToast(`${name} deleted`)
-    } else {
-      setConfirm({ open: false, kind: null })
-    }
-  }
-
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key !== 'Escape') return
-      if (confirm.open) {
-        handleConfirmNo()
-        return
-      }
-      if (godPickerOpen) {
-        handleCloseGodPicker()
-        return
-      }
-      if (view === 'form') {
-        handleCancelForm()
-        return
-      }
-      if (view === 'detail') {
-        handleCloseDetail()
-      }
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [confirm.open, godPickerOpen, view, form])
-
-  const chosenRole = form.roleId ? findRole(form.roleId) : null
-  const formTitle = formMode === 'add' ? 'Add user' : `Edit · ${form.name || 'user'}`
-  const saveLabel = formMode === 'add' ? 'Add user' : 'Save changes'
-  const godNames = openUser ? openUser.gods.map((g) => findGodName(godsList, g)) : []
 
   return (
     <div className="relative h-full overflow-hidden bg-sunken">
       <UsersListView
-        onAdd={handleAdd}
         search={search}
-        onSearchChange={handleSearchChange}
-        roleOptions={ROLE_FILTER_OPTIONS}
+        onSearchChange={(value) => { setSearch(value); setPage(1) }}
+        roleOptions={roleFilterOptions}
         filterRole={filterRole}
-        onFilterRoleChange={handleFilterRoleChange}
-        statusOptions={STATUS_FILTER_OPTIONS}
-        filterStatus={filterStatus}
-        onFilterStatusChange={handleFilterStatusChange}
+        onFilterRoleChange={(value) => { setFilterRole(value); setPage(1) }}
+        baseRoleOptions={BASE_ROLE_FILTER_OPTIONS}
+        filterBaseRole={filterBaseRole}
+        onFilterBaseRoleChange={(value) => { setFilterBaseRole(value); setPage(1) }}
         resultLabel={resultLabel}
         kpis={kpis}
-        loading={loading}
-        rows={pageRows}
-        sortKey={sortKey}
-        sortDir={sortDir}
-        onSort={handleSort}
+        loading={usersQuery.isPending}
+        rows={rows}
         onRowClick={handleRowClick}
         empty={emptyContent}
         pageInfo={pageInfo}
         pageSizeOptions={PAGE_SIZE_OPTIONS}
         pageSize={pageSize}
-        onPageSizeChange={handlePageSizeChange}
-        pageLabel={pageLabel}
-        prevDisabled={currentPage <= 0}
-        nextDisabled={currentPage >= pageCount - 1}
-        onPrev={handlePrev}
-        onNext={handleNext}
+        onPageSizeChange={(size) => { setPageSize(size); setPage(1) }}
+        pageLabel={`Page ${page} of ${pageCount}`}
+        prevDisabled={page <= 1}
+        nextDisabled={page >= pageCount}
+        onPrev={() => setPage((p) => Math.max(1, p - 1))}
+        onNext={() => setPage((p) => Math.min(pageCount, p + 1))}
       />
 
-      {view === 'detail' && openUser && openRole && (
+      {view === 'detail' && detailQuery.data && (
         <UserDetailView
-          user={openUser}
-          role={openRole}
-          godNames={godNames}
+          user={detailQuery.data}
+          canEditRoles={canAssignRoles}
           onClose={handleCloseDetail}
-          onEdit={handleEditUser}
-          onDeactivate={handleAskDeactivate}
-          onReactivate={handleReactivate}
-          onDelete={handleAskDelete}
+          onEditRoles={handleEditRoles}
         />
       )}
 
-      {view === 'form' && (
-        <UserFormView
-          title={formTitle}
-          saveLabel={saveLabel}
-          values={form}
-          errors={errors}
-          roleOptions={ROLE_OPTIONS}
-          chosenRole={chosenRole}
-          gods={godsList}
-          godPickerOpen={godPickerOpen}
-          onCancel={handleCancelForm}
-          onSave={handleSaveForm}
-          onNameChange={(v) => setFormField('name', v)}
-          onEmailChange={(v) => setFormField('email', v)}
-          onPhoneChange={(v) => setFormField('phone', v)}
-          onStatusToggle={handleStatusToggle}
-          onPictureSelect={handlePictureSelect}
-          onRemovePicture={handleRemovePicture}
-          onRoleChange={(v) => setFormField('roleId', v)}
-          onToggleGodPicker={handleToggleGodPicker}
-          onCloseGodPicker={handleCloseGodPicker}
-          onToggleGod={handleToggleGod}
-          onRemoveGod={handleRemoveGod}
+      {view === 'roles' && detailQuery.data && (
+        <UserRolesEditor
+          user={detailQuery.data}
+          roles={assignableRoles}
+          rolesLoading={rolesQuery.isPending}
+          selectedIds={selectedRoleIds}
+          saving={setRoles.isPending}
+          error={setRoles.isError ? (toFailure(setRoles.error)?.message ?? 'Could not save roles.') : null}
+          onToggleRole={handleToggleRole}
+          onCancel={() => setView('detail')}
+          onSave={handleSaveRoles}
         />
       )}
 
-      <ConfirmUserDialog open={confirm.open} kind={confirm.kind} onConfirm={handleConfirmYes} onCancel={handleConfirmNo} />
       <UserToast show={toast.show} message={toast.message} />
     </div>
   )

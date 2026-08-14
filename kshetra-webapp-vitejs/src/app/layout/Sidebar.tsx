@@ -5,7 +5,7 @@ import { useCan } from '@/features/auth/application/hooks/useCan'
 import { cn } from '@/shared/lib/cn'
 import { Icon } from '@/shared/ui'
 
-import { NAV, type NavItem, type NavLeaf } from './nav'
+import { NAV, visibleNav as selectVisibleNav, type NavItem, type NavLeaf } from './nav'
 
 interface SidebarProps {
   collapsed: boolean
@@ -21,19 +21,9 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
   const { pathname } = useLocation()
   const can = useCan()
 
-  /**
-   * Only entries the signed-in user actually holds permission for. A group
-   * disappears once every one of its children does — an empty expander is
-   * worse than no expander.
-   */
-  const visibleNav = useMemo(() => {
-    const isVisible = (entry: NavItem | NavLeaf) => (entry.permissions ?? []).every(can)
-    return NAV.filter(isVisible).flatMap<NavItem>((item) => {
-      if (!item.children) return [item]
-      const children = item.children.filter(isVisible)
-      return children.length > 0 ? [{ ...item, children }] : []
-    })
-  }, [can])
+  // Shared with the router's landing redirect, so the rail and the routes can
+  // never disagree about which modules this user has.
+  const visibleNav = useMemo(() => selectVisibleNav(can), [can])
 
   const [open, setOpen] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {}
