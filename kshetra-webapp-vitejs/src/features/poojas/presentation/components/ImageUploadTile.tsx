@@ -13,12 +13,26 @@ export interface ImageUploadTileProps {
 }
 
 /** Preview-or-upload tile for a single artwork slot (pooja card/banner, god home/pooja image). Drops out entirely in view mode when empty. */
-export function ImageUploadTile({ image, editing, boxClassName, uploadLabel, removeLabel, hint, onUpload, onRemove }: ImageUploadTileProps) {
+export function ImageUploadTile({
+  image,
+  editing,
+  boxClassName,
+  uploadLabel,
+  removeLabel,
+  hint,
+  onUpload,
+  onRemove,
+}: ImageUploadTileProps) {
   if (!editing && !image) return null
 
   if (image) {
     return (
-      <div className={cn('relative overflow-hidden rounded-lg bg-sunken shadow-[inset_0_0_0_1px_var(--border-default)]', boxClassName)}>
+      <div
+        className={cn(
+          'relative overflow-hidden rounded-lg bg-sunken shadow-[inset_0_0_0_1px_var(--border-default)]',
+          boxClassName,
+        )}
+      >
         <img src={image} alt="" className="block h-full w-full object-cover" />
         {editing && (
           <button

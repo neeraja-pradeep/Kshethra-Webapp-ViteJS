@@ -10,7 +10,14 @@ export interface ConfirmModalProps {
 }
 
 /** Shared confirm dialog for discard / deactivate / delete / save-guard prompts. Always a danger action button, matching the source. */
-export function ConfirmModal({ open, title, body, actionLabel, onConfirm, onCancel }: ConfirmModalProps) {
+export function ConfirmModal({
+  open,
+  title,
+  body,
+  actionLabel,
+  onConfirm,
+  onCancel,
+}: ConfirmModalProps) {
   return (
     <Modal
       open={open}

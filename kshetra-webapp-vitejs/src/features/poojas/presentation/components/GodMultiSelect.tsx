@@ -1,22 +1,31 @@
 import { Icon } from '@/shared/ui'
 import { cn } from '@/shared/lib/cn'
 
-import type { God } from '../../domain/entities/god'
+import type { God } from '@/features/poojas/domain/entities/god'
 
 export interface GodMultiSelectProps {
-  godIds: readonly string[]
+  godIds: readonly number[]
   gods: readonly God[]
   open: boolean
   error?: string
   onToggleOpen: () => void
   onClose: () => void
-  onToggle: (godId: string) => void
-  onRemove: (godId: string) => void
+  onToggle: (godId: number) => void
+  onRemove: (godId: number) => void
 }
 
 /** Multi-select for a pooja's gods: removable chips + a dropdown of active gods, sorted alphabetically. */
-export function GodMultiSelect({ godIds, gods, open, error, onToggleOpen, onClose, onToggle, onRemove }: GodMultiSelectProps) {
-  const nameById = (id: string) => gods.find((g) => g.id === id)?.name ?? id
+export function GodMultiSelect({
+  godIds,
+  gods,
+  open,
+  error,
+  onToggleOpen,
+  onClose,
+  onToggle,
+  onRemove,
+}: GodMultiSelectProps) {
+  const nameById = (id: number) => gods.find((g) => g.id === id)?.name ?? String(id)
   const options = gods
     .filter((g) => g.status === 'Active')
     .slice()
@@ -56,8 +65,17 @@ export function GodMultiSelect({ godIds, gods, open, error, onToggleOpen, onClos
           className="flex h-10 w-full items-center gap-2 rounded-lg border-none bg-card px-3 text-left font-sans text-base shadow-xs hover:shadow-[inset_0_0_0_1px_var(--border-strong)]"
         >
           <Icon name="plus-circle" size={16} className="text-ink-subtle" />
-          <span className="flex-1 text-ink">{godIds.length ? 'Add or remove gods' : 'Select gods'}</span>
-          <Icon name="caret-down" size={14} className={cn('text-ink-subtle transition-transform duration-140 ease-ks', open && 'rotate-180')} />
+          <span className="flex-1 text-ink">
+            {godIds.length ? 'Add or remove gods' : 'Select gods'}
+          </span>
+          <Icon
+            name="caret-down"
+            size={14}
+            className={cn(
+              'text-ink-subtle transition-transform duration-140 ease-ks',
+              open && 'rotate-180',
+            )}
+          />
         </button>
 
         {open && (
@@ -79,7 +97,9 @@ export function GodMultiSelect({ godIds, gods, open, error, onToggleOpen, onClos
                     <span
                       className={cn(
                         'inline-flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-sm text-white',
-                        selected ? 'bg-primary' : 'bg-card shadow-[inset_0_0_0_1px_var(--border-strong)]',
+                        selected
+                          ? 'bg-primary'
+                          : 'bg-card shadow-[inset_0_0_0_1px_var(--border-strong)]',
                       )}
                     >
                       {selected && <Icon name="check" size={12} />}
@@ -94,7 +114,9 @@ export function GodMultiSelect({ godIds, gods, open, error, onToggleOpen, onClos
       </div>
 
       {error && <div className="text-xs text-danger">{error}</div>}
-      <div className="text-2xs leading-snug text-ink-subtle">Multiple gods share one price. For a different price per god, create a separate pooja.</div>
+      <div className="text-2xs leading-snug text-ink-subtle">
+        Multiple gods share one price. For a different price per god, create a separate pooja.
+      </div>
     </div>
   )
 }

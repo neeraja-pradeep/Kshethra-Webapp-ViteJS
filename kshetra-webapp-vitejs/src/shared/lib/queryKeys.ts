@@ -21,4 +21,19 @@ export const QUERY_ROOTS = {
   storeOrders: ['store-orders'],
   storeProducts: ['store-products'],
   storeCategories: ['store-categories'],
+  /**
+   * Poojas and gods keep separate roots even though one screen edits both.
+   * A pooja write moves a god's `poojas_count`, so the two invalidate each
+   * other constantly — which is only expressible if they are distinct keys.
+   */
+  poojas: ['poojas'],
+  gods: ['gods'],
+  /**
+   * The counter's own cache, including the pooja and god catalogue it holds
+   * for five minutes at a time. A back-office price edit has to reach the till,
+   * and the whole root is invalidated rather than the catalogue sub-keys
+   * because guessing those sub-keys from here is exactly the drift this file
+   * exists to prevent.
+   */
+  counter: ['counter-pos'],
 } as const

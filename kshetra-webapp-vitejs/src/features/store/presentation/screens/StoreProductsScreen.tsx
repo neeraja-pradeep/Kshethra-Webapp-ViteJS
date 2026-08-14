@@ -2,7 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { toFailure, toFieldErrors } from '@/core/error/result'
 import { formatCount } from '@/shared/lib/format'
-import { Alert, Icon, Input, Select, Spinner, Table } from '@/shared/ui'
+import {
+  Alert,
+  FilteredEmpty,
+  Icon,
+  Input,
+  ListPagination,
+  Select,
+  Spinner,
+  Table,
+} from '@/shared/ui'
 
 import { PERMISSIONS } from '@/features/auth/application/hooks/permissions'
 import { useCan } from '@/features/auth/application/hooks/useCan'
@@ -40,9 +49,7 @@ import {
 
 import { Button } from '@/shared/ui'
 import { AdjustStockModal } from '../components/AdjustStockModal'
-import { FilteredEmpty } from '../components/FilteredEmpty'
 import { KpiTile } from '../components/KpiTile'
-import { ListPagination } from '../components/ListPagination'
 import { ProductDetailForm, type ProductFormValues } from '../components/ProductDetailForm'
 import { StockHistoryPanel } from '../components/StockHistoryPanel'
 import { ToastMessage } from '../components/ToastMessage'
@@ -86,7 +93,12 @@ export function StoreProductsScreen() {
   const [toast, setToast] = useState({ show: false, message: '' })
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current) }, [])
+  useEffect(
+    () => () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current)
+    },
+    [],
+  )
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(filters.search.trim()), SEARCH_DEBOUNCE_MS)
@@ -113,13 +125,17 @@ export function StoreProductsScreen() {
   const deleteProduct = useDeleteProductMutation()
   const adjustStock = useAdjustStockMutation()
   // Only fetched for an existing product, and only with `view_stock`.
-  const stockHistory = useStockHistoryQuery(formTarget?.id ?? null, canViewStock && formTarget?.id != null)
+  const stockHistory = useStockHistoryQuery(
+    formTarget?.id ?? null,
+    canViewStock && formTarget?.id != null,
+  )
 
   const rows = productsQuery.data?.results ?? []
   const count = productsQuery.data?.count ?? 0
   const summary = productsQuery.data?.summary ?? EMPTY_SUMMARY
   const stale = productsQuery.isPlaceholderData || productsQuery.isFetching
-  const listFailure = toFailure(productsQuery.error) ?? toFailure(setStatus.error) ?? toFailure(deleteProduct.error)
+  const listFailure =
+    toFailure(productsQuery.error) ?? toFailure(setStatus.error) ?? toFailure(deleteProduct.error)
   const filtersActive = productListFiltersActive(filters)
 
   function updateFilters(patch: Partial<ProductListFilterState>) {
@@ -138,7 +154,10 @@ export function StoreProductsScreen() {
     const next = row.status === 'active' ? 'inactive' : 'active'
     setStatus.mutate(
       { id: row.id, status: next },
-      { onSuccess: () => showToast(`${row.name} ${next === 'active' ? 'activated' : 'deactivated'}`) },
+      {
+        onSuccess: () =>
+          showToast(`${row.name} ${next === 'active' ? 'activated' : 'deactivated'}`),
+      },
     )
   }
 
@@ -149,7 +168,8 @@ export function StoreProductsScreen() {
       price: values.price === '' ? 0 : Number(values.price),
       description: values.description,
       status: values.status,
-      lowStockThreshold: values.lowStockThreshold === '' ? undefined : Number(values.lowStockThreshold),
+      lowStockThreshold:
+        values.lowStockThreshold === '' ? undefined : Number(values.lowStockThreshold),
       ...(values.addedFiles.length ? { images: values.addedFiles } : {}),
       ...(values.removedImageIds.length ? { removeImages: values.removedImageIds } : {}),
     }
@@ -161,7 +181,12 @@ export function StoreProductsScreen() {
       const id = formTarget.id
       updateProduct.mutate(
         { id, input },
-        { onSuccess: () => { setFormTarget({ id, mode: 'view' }); showToast('Product saved') } },
+        {
+          onSuccess: () => {
+            setFormTarget({ id, mode: 'view' })
+            showToast('Product saved')
+          },
+        },
       )
       return
     }
@@ -184,13 +209,21 @@ export function StoreProductsScreen() {
     ...PRODUCT_STATUSES.map((s) => ({ value: s, label: productStatusLabel(s) })),
   ]
 
-  const columns = buildProductColumns(filters.sortKey, filters.sortDir, handleSort, handleToggleStatus, canEdit)
+  const columns = buildProductColumns(
+    filters.sortKey,
+    filters.sortDir,
+    handleSort,
+    handleToggleStatus,
+    canEdit,
+  )
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-sunken">
       <div className="flex flex-shrink-0 items-start gap-4 px-7 pb-3.5 pt-6">
         <div className="min-w-0 flex-1">
-          <h1 className="m-0 text-3xl font-heading leading-tight tracking-title text-ink-strong">Products</h1>
+          <h1 className="m-0 text-3xl font-heading leading-tight tracking-title text-ink-strong">
+            Products
+          </h1>
           <p className="m-0 mt-1.5 text-sm text-ink-muted">Catalogue, pricing and stock.</p>
         </div>
         {canAdd && (
@@ -241,8 +274,13 @@ export function StoreProductsScreen() {
         but NOT over stock_state — so clicking one does not zero the other three,
         and `summary.total` may legitimately exceed the paged `count`.
       */}
-      <div className={`flex flex-wrap items-stretch gap-2.5 px-7 pb-3.5 ${stale ? 'opacity-60' : ''}`}>
-        <KpiTile value={formatCount(summary.total)} label={summary.total === 1 ? 'product' : 'products'} />
+      <div
+        className={`flex flex-wrap items-stretch gap-2.5 px-7 pb-3.5 ${stale ? 'opacity-60' : ''}`}
+      >
+        <KpiTile
+          value={formatCount(summary.total)}
+          label={summary.total === 1 ? 'product' : 'products'}
+        />
         {STOCK_STATES.map((state) => (
           <KpiTile
             key={state}
@@ -250,7 +288,9 @@ export function StoreProductsScreen() {
             label={stockStateLabel(state)}
             dotClassName={stockStateDotClass(state)}
             active={filters.stockState === state}
-            onClick={() => updateFilters({ stockState: filters.stockState === state ? ALL : state })}
+            onClick={() =>
+              updateFilters({ stockState: filters.stockState === state ? ALL : state })
+            }
           />
         ))}
       </div>
@@ -268,7 +308,10 @@ export function StoreProductsScreen() {
             <span className="text-sm">Loading products…</span>
           </div>
         ) : rows.length > 0 ? (
-          <div className={`min-h-0 flex-1 overflow-auto ${stale ? 'opacity-60' : ''}`} aria-busy={stale}>
+          <div
+            className={`min-h-0 flex-1 overflow-auto ${stale ? 'opacity-60' : ''}`}
+            aria-busy={stale}
+          >
             <Table
               columns={columns}
               rows={rows as ProductRow[]}
@@ -310,15 +353,18 @@ export function StoreProductsScreen() {
 
       {formTarget && (
         <ProductDetailForm
-          product={formTarget.id != null ? detailQuery.data ?? null : null}
+          product={formTarget.id != null ? (detailQuery.data ?? null) : null}
           mode={formTarget.mode}
           categories={categoriesQuery.data ?? []}
           saving={createProduct.isPending || updateProduct.isPending}
           deleting={deleteProduct.isPending}
           fieldErrors={toFieldErrors(createProduct.error ?? updateProduct.error)}
           errorMessage={
-            (toFailure(createProduct.error) ?? toFailure(updateProduct.error) ?? toFailure(detailQuery.error))
-              ?.message ?? null
+            (
+              toFailure(createProduct.error) ??
+              toFailure(updateProduct.error) ??
+              toFailure(detailQuery.error)
+            )?.message ?? null
           }
           canEdit={canEdit}
           canDelete={canDelete}

@@ -2,8 +2,20 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { toFailure } from '@/core/error/result'
 import { formatCount } from '@/shared/lib/format'
-import { Alert, Button, Icon, Input, Select, Spinner } from '@/shared/ui'
-import { ORDER_PAYMENT_STATUSES, orderPaymentStatusLabel } from '@/shared/order-feed/domain/order-feed'
+import {
+  Alert,
+  Button,
+  FilteredEmpty,
+  Icon,
+  Input,
+  ListPagination,
+  Select,
+  Spinner,
+} from '@/shared/ui'
+import {
+  ORDER_PAYMENT_STATUSES,
+  orderPaymentStatusLabel,
+} from '@/shared/order-feed/domain/order-feed'
 import { useOrderFeedQuery } from '@/shared/order-feed/application/useOrderFeedQuery'
 import { OrderFeedSummaryBand } from '@/shared/order-feed/presentation/OrderFeedSummaryBand'
 
@@ -24,8 +36,6 @@ import {
 } from '@/features/store/presentation/lib/storeOrderListFilters'
 
 import { DateRangeMenu } from '../components/DateRangeMenu'
-import { FilteredEmpty } from '../components/FilteredEmpty'
-import { ListPagination } from '../components/ListPagination'
 import { StoreOrderDetailPanel } from '../components/StoreOrderDetailPanel'
 import { StoreOrdersTable } from '../components/StoreOrdersTable'
 import { StoreReceiptModal } from '../components/StoreReceiptModal'
@@ -133,7 +143,9 @@ export function StoreOrdersScreen() {
     <div className="relative flex h-full flex-col overflow-hidden bg-sunken">
       <div className="flex flex-shrink-0 items-start gap-4 px-7 pb-4 pt-6">
         <div className="min-w-0 flex-1">
-          <h1 className="m-0 text-3xl font-heading leading-tight tracking-title text-ink-strong">Store Orders</h1>
+          <h1 className="m-0 text-3xl font-heading leading-tight tracking-title text-ink-strong">
+            Store Orders
+          </h1>
           <p className="m-0 mt-1.5 text-sm text-ink-muted">Fulfilment, payments and refunds.</p>
         </div>
         {canSell && (
@@ -242,8 +254,15 @@ export function StoreOrdersScreen() {
             <span className="text-sm">Loading orders…</span>
           </div>
         ) : rows.length > 0 ? (
-          <div className={`min-h-0 flex-1 overflow-auto ${stale ? 'opacity-60' : ''}`} aria-busy={stale}>
-            <StoreOrdersTable rows={rows} onOpenOrder={setOpenOrderId} empty="No store orders yet." />
+          <div
+            className={`min-h-0 flex-1 overflow-auto ${stale ? 'opacity-60' : ''}`}
+            aria-busy={stale}
+          >
+            <StoreOrdersTable
+              rows={rows}
+              onOpenOrder={setOpenOrderId}
+              empty="No store orders yet."
+            />
           </div>
         ) : (
           <div className="flex min-h-60 flex-1 items-center justify-center p-10 text-center text-sm text-ink-muted">

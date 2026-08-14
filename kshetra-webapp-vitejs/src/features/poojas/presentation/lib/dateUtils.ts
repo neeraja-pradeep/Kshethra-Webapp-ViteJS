@@ -35,7 +35,12 @@ export function addDaysISO(iso: string, days: number): string {
 export function humanDate(iso: string): string {
   const d = parseISODate(iso)
   if (!d) return iso || '—'
-  return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+  return d.toLocaleDateString('en-IN', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
 }
 
 /** "14 February" — day + full month, used for the yearly recurrence caption. */

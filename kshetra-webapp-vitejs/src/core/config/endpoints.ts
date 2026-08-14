@@ -39,13 +39,50 @@ export const COUNTER_ENDPOINTS = {
   cancelSale: (id: number) => `/booking/counter/sales/${id}/cancel/`,
   collectionSummary: '/booking/counter/sales/collection-summary/',
   agentBookings: '/booking/counter/agent-bookings/',
-  recordAgentPayment: (orderId: number) => `/booking/counter/agent-bookings/${orderId}/record-payment/`,
+  recordAgentPayment: (orderId: number) =>
+    `/booking/counter/agent-bookings/${orderId}/record-payment/`,
 } as const
 
 export const CATALOGUE_ENDPOINTS = {
   poojas: '/booking/poojas/',
   poojaCategories: '/booking/poojacategory/',
   nakshatrams: '/user/nakshatrams/',
+} as const
+
+/**
+ * Pooja Management — the back office's write side of the same two resources
+ * the counter reads through `CATALOGUE_ENDPOINTS`.
+ *
+ * A god is a `PoojaCategory`: the screen says God, the table predates the
+ * screen, and every pooja, order and report already points at it.
+ */
+export const POOJA_ADMIN_ENDPOINTS = {
+  gods: '/booking/poojacategory/',
+  god: (id: number) => `/booking/poojacategory/${id}/`,
+  reorderGods: '/booking/poojacategory/reorder/',
+  bulkStatusGods: '/booking/poojacategory/bulk-status/',
+  bulkDeleteGods: '/booking/poojacategory/bulk-delete/',
+
+  poojas: '/booking/poojas/',
+  pooja: (id: number) => `/booking/poojas/${id}/`,
+  duplicatePooja: (id: number) => `/booking/poojas/${id}/duplicate/`,
+  bulkStatusPoojas: '/booking/poojas/bulk-status/',
+  bulkDeletePoojas: '/booking/poojas/bulk-delete/',
+
+  /** `GET` lists this pooja's blocks, `POST` adds one. Both need `change_pooja`. */
+  poojaBlocks: (id: number) => `/booking/poojas/${id}/unavailable-dates/`,
+  poojaBlock: (id: number, blockId: number) =>
+    `/booking/poojas/${id}/unavailable-dates/${blockId}/`,
+  /** The read-only view of the same calendar — `view_pooja`, not `change_pooja`. */
+  poojaAvailability: (id: number) => `/booking/poojas/${id}/availability/`,
+
+  importPoojas: '/booking/poojas/import/',
+  importTemplate: '/booking/poojas/import/template/',
+
+  specialPoojaDates: '/booking/special-pooja-dates/',
+  specialPoojaDate: (id: number) => `/booking/special-pooja-dates/${id}/`,
+  specialPoojaDateRepeats: '/booking/special-pooja-date-repeats/',
+  specialPoojaDateRepeat: (id: number) => `/booking/special-pooja-date-repeats/${id}/`,
 } as const
 
 /**

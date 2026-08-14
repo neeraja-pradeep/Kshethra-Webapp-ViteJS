@@ -1,86 +1,111 @@
-import { Button, Icon } from '@/shared/ui'
+import { Button, Icon, Switch } from '@/shared/ui'
 
-import type { SpecificDate } from '../../domain/entities/pooja'
-import { humanDate, todayISO } from '../lib/dateUtils'
+import type { SpecialDateDraft } from '@/features/poojas/presentation/lib/poojaForm'
+
+import { humanDate } from '../lib/dateUtils'
 
 export interface SpecificDatesEditorProps {
-  dates: readonly SpecificDate[]
+  dates: readonly SpecialDateDraft[]
   draft: string
   editing: boolean
+  error?: string
   onDraftChange: (value: string) => void
   onAdd: () => void
   onRemove: (index: number) => void
-  onFieldChange: (index: number, field: 'offlinePrice' | 'onlinePrice' | 'incentive', value: string) => void
-  onOpenHistory: () => void
+  onFieldChange: (index: number, patch: Partial<SpecialDateDraft>) => void
 }
 
-/** One-off dates & their pricing. Only upcoming dates are listed; a pill opens the past-dates history modal. */
-export function SpecificDatesEditor({ dates, draft, editing, onDraftChange, onAdd, onRemove, onFieldChange, onOpenHistory }: SpecificDatesEditorProps) {
-  const today = todayISO()
-  const upcoming = dates
-    .map((d, index) => ({ ...d, index }))
-    .filter((d) => d.date >= today)
-    .sort((a, b) => a.date.localeCompare(b.date))
-  const pastCount = dates.filter((d) => d.date < today).length
-  const hasAnyDates = dates.length > 0
-
-  // In view mode with no specific dates at all (past or upcoming), the whole section drops out.
-  if (!editing && !hasAnyDates) return null
+/**
+ * The published dates a special pooja may be booked on, each with its own
+ * optional time and price override.
+ *
+ * The list is additive on the server, so **an already-published date cannot be
+ * removed from here**: dropping it from the payload leaves it standing, and a
+ * remove button that silently did nothing would be worse than none. A published
+ * date can have orders against it; only
+ * `DELETE /booking/special-pooja-dates/<id>/` retracts one and unwinds them.
+ *
+ * Rows added in this session are not published yet, so those can still be
+ * taken back out.
+ */
+export function SpecificDatesEditor({
+  dates,
+  draft,
+  editing,
+  error,
+  onDraftChange,
+  onAdd,
+  onRemove,
+  onFieldChange,
+}: SpecificDatesEditorProps) {
+  if (!editing && dates.length === 0) return null
 
   return (
     <div className="flex flex-col gap-2.75">
-      {hasAnyDates && (
-        <div className="flex items-start gap-2.5">
-          <div className="min-w-0 flex-1">
-            <div className="text-2xs font-semibold uppercase tracking-overline text-ink-subtle">Specific dates &amp; pricing</div>
-            <div className="mt-1 text-2xs leading-snug text-ink-subtle">
-              Add individual dates (festivals, one-offs). Each prefills the base price — edit to override for that date. Only upcoming dates are listed.
-            </div>
-          </div>
-          {pastCount > 0 && (
-            <button
-              type="button"
-              onClick={onOpenHistory}
-              title="View past dates and their pricing"
-              className="inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-card px-2.75 text-xs font-medium text-ink-muted shadow-xs hover:bg-hover hover:text-ink-strong"
-            >
-              <Icon name="clock-counter-clockwise" size={14} />
-              {pastCount} {pastCount === 1 ? 'past date' : 'past dates'}
-            </button>
-          )}
+      <div>
+        <div className="text-2xs font-semibold uppercase tracking-overline text-ink-subtle">
+          Published dates &amp; pricing
         </div>
-      )}
+        <div className="mt-1 text-2xs leading-snug text-ink-subtle">
+          A special pooja may only be booked on a published date. Leave a price blank to use the
+          pooja’s own. Only upcoming, unblocked dates are listed.
+        </div>
+      </div>
 
       {editing && (
         <div className="flex items-center gap-2">
           <input
             type="date"
-            aria-label="Specific date to add"
+            aria-label="Date to publish"
             value={draft}
             onChange={(e) => onDraftChange(e.target.value)}
             className="h-8.5 flex-1 rounded-md border-none bg-card px-2.5 font-sans text-base text-ink shadow-xs"
           />
-          <Button theme="default" variant="outline" size="sm" onClick={onAdd} iconLeft={<Icon name="plus" size={14} />}>
+          <Button
+            theme="default"
+            variant="outline"
+            size="sm"
+            onClick={onAdd}
+            iconLeft={<Icon name="plus" size={14} />}
+          >
             Add date
           </Button>
         </div>
       )}
 
-      {upcoming.length > 0 && (
+      {error && <div className="text-xs text-danger">{error}</div>}
+
+      {dates.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          {upcoming.map((r) => (
-            <div key={r.date} className="flex flex-wrap items-center gap-2 rounded-md border border-stroke-subtle bg-sunken px-2.5 py-2">
-              <span className="min-w-[84px] flex-1 text-sm text-ink">{humanDate(r.date)}</span>
+          {dates.map((row, index) => (
+            <div
+              key={row.id ?? `new-${row.date}-${index}`}
+              className="flex flex-wrap items-center gap-2 rounded-md border border-stroke-subtle bg-sunken px-2.5 py-2"
+            >
+              <span className="min-w-[84px] flex-1 text-sm text-ink">{humanDate(row.date)}</span>
               {editing ? (
                 <>
+                  <span className="flex items-center gap-1.25">
+                    <span className="text-2xs text-ink-subtle">Time</span>
+                    <input
+                      type="time"
+                      aria-label="Time for this date"
+                      value={row.time.slice(0, 5)}
+                      onChange={(e) =>
+                        onFieldChange(index, { time: e.target.value ? `${e.target.value}:00` : '' })
+                      }
+                      className="h-7.5 rounded-md border-none bg-card px-2 font-sans text-sm text-ink shadow-xs"
+                    />
+                  </span>
                   <span className="flex items-center gap-1.25">
                     <span className="text-2xs text-ink-subtle">Offline ₹</span>
                     <input
                       type="number"
                       min={0}
+                      placeholder="—"
                       aria-label="Offline price for this date"
-                      value={r.offlinePrice}
-                      onChange={(e) => onFieldChange(r.index, 'offlinePrice', e.target.value)}
+                      value={row.offlinePrice}
+                      onChange={(e) => onFieldChange(index, { offlinePrice: e.target.value })}
                       className="h-7.5 w-16 rounded-md border-none bg-card px-2 font-sans text-sm text-ink shadow-xs"
                     />
                   </span>
@@ -89,37 +114,56 @@ export function SpecificDatesEditor({ dates, draft, editing, onDraftChange, onAd
                     <input
                       type="number"
                       min={0}
+                      placeholder="—"
                       aria-label="Online price for this date"
-                      value={r.onlinePrice}
-                      onChange={(e) => onFieldChange(r.index, 'onlinePrice', e.target.value)}
+                      value={row.onlinePrice}
+                      onChange={(e) => onFieldChange(index, { onlinePrice: e.target.value })}
                       className="h-7.5 w-16 rounded-md border-none bg-card px-2 font-sans text-sm text-ink shadow-xs"
                     />
                   </span>
-                  <span className="flex items-center gap-1.25" title="Poojari incentive">
-                    <span className="text-2xs text-ink-subtle">Incentive ₹</span>
-                    <input
-                      type="number"
-                      min={0}
-                      aria-label="Poojari incentive for this date"
-                      value={r.incentive ?? 0}
-                      onChange={(e) => onFieldChange(r.index, 'incentive', e.target.value)}
-                      className="h-7.5 w-16 rounded-md border-none bg-card px-2 font-sans text-sm text-ink shadow-xs"
-                    />
-                  </span>
-                  <button
-                    type="button"
-                    aria-label="Remove date"
-                    onClick={() => onRemove(r.index)}
-                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border-none bg-transparent text-ink-subtle hover:bg-hover hover:text-danger"
+                  <span
+                    className="flex items-center gap-1.5"
+                    title="Feature this date on the app banner"
                   >
-                    <Icon name="trash" size={14} />
-                  </button>
+                    <span className="text-2xs text-ink-subtle">Banner</span>
+                    <Switch
+                      checked={row.banner}
+                      size="sm"
+                      onChange={(e) => onFieldChange(index, { banner: e.target.checked })}
+                    />
+                  </span>
+                  {row.id == null ? (
+                    <button
+                      type="button"
+                      aria-label="Remove date"
+                      onClick={() => onRemove(index)}
+                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border-none bg-transparent text-ink-subtle hover:bg-hover hover:text-danger"
+                    >
+                      <Icon name="trash" size={14} />
+                    </button>
+                  ) : (
+                    <span
+                      title="A published date can have bookings against it. Block the day instead, or remove it from Special pooja dates."
+                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center text-ink-disabled"
+                    >
+                      <Icon name="lock-simple" size={14} />
+                    </span>
+                  )}
                 </>
               ) : (
                 <span className="flex items-center gap-3.5 text-sm tabular-nums text-ink-strong">
-                  <span>Offline ₹{r.offlinePrice.toLocaleString('en-IN')}</span>
-                  <span>Online ₹{r.onlinePrice.toLocaleString('en-IN')}</span>
-                  {!!r.incentive && <span>Incentive ₹{r.incentive.toLocaleString('en-IN')}</span>}
+                  {row.time && <span>{row.time.slice(0, 5)}</span>}
+                  <span>
+                    Offline{' '}
+                    {row.offlinePrice
+                      ? `₹${Number(row.offlinePrice).toLocaleString('en-IN')}`
+                      : '—'}
+                  </span>
+                  <span>
+                    Online{' '}
+                    {row.onlinePrice ? `₹${Number(row.onlinePrice).toLocaleString('en-IN')}` : '—'}
+                  </span>
+                  {row.banner && <Icon name="megaphone" size={14} className="text-primary" />}
                 </span>
               )}
             </div>
@@ -127,7 +171,9 @@ export function SpecificDatesEditor({ dates, draft, editing, onDraftChange, onAd
         </div>
       )}
 
-      {hasAnyDates && upcoming.length === 0 && <div className="text-sm text-ink-muted">No upcoming dates.</div>}
+      {editing && dates.length === 0 && (
+        <div className="text-sm text-ink-muted">No upcoming dates.</div>
+      )}
     </div>
   )
 }
