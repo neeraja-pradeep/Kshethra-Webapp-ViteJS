@@ -118,6 +118,20 @@ export const ADMIN_ORDER_ENDPOINTS = {
 } as const
 
 /**
+ * App > Devotees — the app's sign-ups.
+ *
+ * A separate resource from `RBAC_ENDPOINTS.users`, which is staff and poojaris:
+ * the two screens answer different questions and share nothing but the table
+ * they read from. There is no create — nothing but signing up in the app makes
+ * a devotee account — and no delete; `devoteeStatus` is the only write.
+ */
+export const DEVOTEE_ENDPOINTS = {
+  devotees: '/admin/devotees/',
+  devotee: (id: number) => `/admin/devotees/${id}/`,
+  devoteeStatus: (id: number) => `/admin/devotees/${id}/status/`,
+} as const
+
+/**
  * The shop catalogue.
  *
  * `products` is a **flat** view — one row per product with its primary

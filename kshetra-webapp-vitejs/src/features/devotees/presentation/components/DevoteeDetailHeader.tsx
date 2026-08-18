@@ -1,19 +1,22 @@
-import { Badge, Button, Icon } from '@/shared/ui'
+import { Badge, Icon } from '@/shared/ui'
 
-import type { Devotee } from '@/features/devotees/domain/entities/devotee'
+import { DEVOTEE_STATUS_LABEL, type DevoteeStatus } from '@/features/devotees/domain/entities/devotee'
 import { devoteeStatusColor } from '@/features/devotees/presentation/lib/badgeColors'
 
 export interface DevoteeDetailHeaderProps {
-  devotee: Devotee
-  editing: boolean
+  name: string
+  status: DevoteeStatus | null
   onBack: () => void
-  onEdit: () => void
-  onCancelEdit: () => void
-  onSave: () => void
 }
 
-/** Sticky top bar for the devotee detail screen: back, breadcrumb, status, edit controls. */
-export function DevoteeDetailHeader({ devotee, editing, onBack, onEdit, onCancelEdit, onSave }: DevoteeDetailHeaderProps) {
+/**
+ * Sticky top bar for the devotee detail screen.
+ *
+ * No edit control: the account's contact details and family profiles are the
+ * devotee's own to change in the app, and the back office has no endpoint that
+ * writes either.
+ */
+export function DevoteeDetailHeader({ name, status, onBack }: DevoteeDetailHeaderProps) {
   return (
     <div className="flex h-14 shrink-0 items-center gap-2.5 border-b border-stroke bg-card px-6">
       <button
@@ -27,27 +30,12 @@ export function DevoteeDetailHeader({ devotee, editing, onBack, onEdit, onCancel
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <span className="text-xs font-semibold uppercase tracking-overline text-ink-subtle">App · Devotees</span>
         <span className="text-stroke-strong">/</span>
-        <span className="whitespace-nowrap text-base font-semibold text-ink-strong">{devotee.name}</span>
+        <span className="truncate text-base font-semibold text-ink-strong">{name}</span>
       </div>
-      <Badge color={devoteeStatusColor(devotee.status)} size="sm">
-        {devotee.status}
-      </Badge>
-      {!editing && (
-        <Button theme="default" variant="outline" size="sm" onClick={onEdit}>
-          <Icon name="pencil-simple" size={14} />
-          Edit details
-        </Button>
-      )}
-      {editing && (
-        <>
-          <Button theme="default" variant="outline" size="sm" onClick={onCancelEdit}>
-            Cancel
-          </Button>
-          <Button theme="primary" size="sm" onClick={onSave}>
-            <Icon name="check" size={14} />
-            Save changes
-          </Button>
-        </>
+      {status && (
+        <Badge color={devoteeStatusColor(status)} size="sm">
+          {DEVOTEE_STATUS_LABEL[status]}
+        </Badge>
       )}
     </div>
   )

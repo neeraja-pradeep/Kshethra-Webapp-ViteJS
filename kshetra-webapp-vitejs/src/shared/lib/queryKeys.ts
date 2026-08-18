@@ -36,4 +36,11 @@ export const QUERY_ROOTS = {
    * exists to prevent.
    */
   counter: ['counter-pos'],
+  /**
+   * The app's sign-ups. Distinct from any staff root: a devotee id and a staff
+   * id are both `CustomUser` primary keys, so one root would let the two
+   * screens render each other's payloads.
+   */
+  devotees: ['devotees'],
+
 } as const

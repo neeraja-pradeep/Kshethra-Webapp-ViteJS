@@ -1,85 +1,83 @@
-import type { Devotee } from '@/features/devotees/domain/entities/devotee'
+import { Alert, Icon, Spinner } from '@/shared/ui'
+
+import type { DevoteeDetail } from '@/features/devotees/domain/entities/devotee'
 
 import { DevoteeAccountCard } from './DevoteeAccountCard'
 import { DevoteeBookingHistoryCard } from './DevoteeBookingHistoryCard'
 import { DevoteeDetailHeader } from './DevoteeDetailHeader'
-import type { EditFamilyMember } from './DevoteeFamilyCard'
 import { DevoteeFamilyCard } from './DevoteeFamilyCard'
 import { DevoteeLifecycleCard } from './DevoteeLifecycleCard'
 
 export interface DevoteeDetailPanelProps {
-  devotee: Devotee
-  editing: boolean
-  editPhone: string
-  editEmail: string
-  editFamily: readonly EditFamilyMember[]
+  /** Null while the detail call is in flight or has failed. */
+  devotee: DevoteeDetail | null
+  /** The row that was clicked, so the header can name the account before its detail lands. */
+  fallbackName: string
+  loading: boolean
+  loadError: string | null
+  canSuspend: boolean
+  busy: boolean
   onBack: () => void
-  onEdit: () => void
-  onCancelEdit: () => void
-  onSave: () => void
-  onEditPhoneChange: (value: string) => void
-  onEditEmailChange: (value: string) => void
-  onFamilyNameChange: (id: string, name: string) => void
-  onFamilyNakshatraChange: (id: string, nakshatra: string) => void
-  onRemoveFamilyMember: (id: string) => void
-  onAddFamilyMember: () => void
   onSuspend: () => void
-  onReactivate: () => void
-  onDelete: () => void
-  onOpenBooking?: (ref: string) => void
+  onReinstate: () => void
+  onOpenPoojaOrder?: (orderId: number) => void
+  onOpenShopOrder?: (orderId: number) => void
 }
 
-/** Full-screen account detail: header bar + account/family cards + booking history + lifecycle. */
+/** Full-screen account detail: account and family cards, recent activity, lifecycle. */
 export function DevoteeDetailPanel({
   devotee,
-  editing,
-  editPhone,
-  editEmail,
-  editFamily,
+  fallbackName,
+  loading,
+  loadError,
+  canSuspend,
+  busy,
   onBack,
-  onEdit,
-  onCancelEdit,
-  onSave,
-  onEditPhoneChange,
-  onEditEmailChange,
-  onFamilyNameChange,
-  onFamilyNakshatraChange,
-  onRemoveFamilyMember,
-  onAddFamilyMember,
   onSuspend,
-  onReactivate,
-  onDelete,
-  onOpenBooking,
+  onReinstate,
+  onOpenPoojaOrder,
+  onOpenShopOrder,
 }: DevoteeDetailPanelProps) {
   return (
     <div className="absolute inset-0 z-drawer flex flex-col bg-sunken">
-      <DevoteeDetailHeader devotee={devotee} editing={editing} onBack={onBack} onEdit={onEdit} onCancelEdit={onCancelEdit} onSave={onSave} />
+      <DevoteeDetailHeader name={devotee?.name ?? fallbackName} status={devotee?.status ?? null} onBack={onBack} />
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex max-w-[1000px] flex-col gap-4 p-6 pb-14">
-          <div className="flex flex-wrap items-start gap-4">
-            <DevoteeAccountCard
-              devotee={devotee}
-              editing={editing}
-              editPhone={editPhone}
-              editEmail={editEmail}
-              onEditPhoneChange={onEditPhoneChange}
-              onEditEmailChange={onEditEmailChange}
-            />
-            <DevoteeFamilyCard
-              devotee={devotee}
-              editing={editing}
-              editFamily={editFamily}
-              onFamilyNameChange={onFamilyNameChange}
-              onFamilyNakshatraChange={onFamilyNakshatraChange}
-              onRemoveFamilyMember={onRemoveFamilyMember}
-              onAddFamilyMember={onAddFamilyMember}
-            />
-          </div>
+          {loadError && (
+            <Alert type="danger" icon={<Icon name="warning" size={16} />}>
+              {loadError}
+            </Alert>
+          )}
 
-          <DevoteeBookingHistoryCard devotee={devotee} onOpenBooking={onOpenBooking} />
+          {loading && (
+            <div className="flex min-h-60 items-center justify-center">
+              <Spinner size={36} />
+            </div>
+          )}
 
-          <DevoteeLifecycleCard devotee={devotee} onSuspend={onSuspend} onReactivate={onReactivate} onDelete={onDelete} />
+          {devotee && (
+            <>
+              <div className="flex flex-wrap items-start gap-4">
+                <DevoteeAccountCard devotee={devotee} />
+                <DevoteeFamilyCard devotee={devotee} />
+              </div>
+
+              <DevoteeBookingHistoryCard
+                devotee={devotee}
+                onOpenPoojaOrder={onOpenPoojaOrder}
+                onOpenShopOrder={onOpenShopOrder}
+              />
+
+              <DevoteeLifecycleCard
+                devotee={devotee}
+                canSuspend={canSuspend}
+                busy={busy}
+                onSuspend={onSuspend}
+                onReinstate={onReinstate}
+              />
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -3,10 +3,10 @@ import type { ReactNode } from 'react'
 import { Badge, Table } from '@/shared/ui'
 import type { TableColumn } from '@/shared/ui'
 
-import type { Devotee } from '@/features/devotees/domain/entities/devotee'
+import { DEVOTEE_STATUS_LABEL, type Devotee } from '@/features/devotees/domain/entities/devotee'
 import { devoteeStatusColor } from '@/features/devotees/presentation/lib/badgeColors'
-import type { DevoteeSortKey, SortDirection } from '@/features/devotees/presentation/lib/filterSort'
 import { formatDisplayDate } from '@/features/devotees/presentation/lib/formatDate'
+import type { DevoteeSortKey, SortDirection } from '@/features/devotees/presentation/lib/sort'
 
 import { SortableHeader } from './SortableHeader'
 
@@ -31,8 +31,9 @@ export function DevoteesTable({ rows, sortKey, sortDir, onSort, onRowClick, empt
       header: header('Account holder', 'name'),
       render: (_value, row) => (
         <div className="flex flex-col gap-0.5 py-px">
+          {/* Sign-up does not require a name; the server falls back to the username. */}
           <span className="font-medium text-ink-strong">{row.name}</span>
-          <span className="text-xs text-ink-subtle">{row.phone}</span>
+          <span className="text-xs text-ink-subtle">{row.phone ?? '—'}</span>
         </div>
       ),
     },
@@ -40,13 +41,16 @@ export function DevoteesTable({ rows, sortKey, sortDir, onSort, onRowClick, empt
       key: 'family',
       header: header('Family', 'family'),
       align: 'right',
-      render: (_value, row) => <span className="tabular-nums text-ink">{row.family.length}</span>,
+      // The account holder's own profile is included, so 1 is the smallest
+      // value on a devotee who has ever opened the family screen.
+      render: (_value, row) => <span className="tabular-nums text-ink">{row.familyCount}</span>,
     },
     {
       key: 'bookings',
       header: header('Bookings', 'bookings'),
       align: 'right',
-      render: (_value, row) => <span className="tabular-nums text-ink">{row.bookings.length}</span>,
+      // Cancelled and refunded dates are left out — see the detail's caption.
+      render: (_value, row) => <span className="tabular-nums text-ink">{row.bookingCount}</span>,
     },
     {
       key: 'lastActivity',
@@ -58,7 +62,7 @@ export function DevoteesTable({ rows, sortKey, sortDir, onSort, onRowClick, empt
       header: header('Status', 'status'),
       render: (_value, row) => (
         <Badge color={devoteeStatusColor(row.status)} size="sm">
-          {row.status}
+          {DEVOTEE_STATUS_LABEL[row.status]}
         </Badge>
       ),
     },

@@ -1,11 +1,11 @@
 import { Icon, Input, Select } from '@/shared/ui'
 
-import type { DevoteeStatusFilter } from '@/features/devotees/presentation/lib/filterSort'
+import { ALL_STATUSES, type DevoteeStatusFilter } from '@/features/devotees/presentation/lib/sort'
 
 const STATUS_OPTIONS: { value: DevoteeStatusFilter; label: string }[] = [
-  { value: 'all', label: 'All statuses' },
-  { value: 'Active', label: 'Active' },
-  { value: 'Suspended', label: 'Suspended' },
+  { value: ALL_STATUSES, label: 'All statuses' },
+  { value: 'active', label: 'Active' },
+  { value: 'suspended', label: 'Suspended' },
 ]
 
 export interface DevoteesFilterBarProps {
@@ -13,10 +13,12 @@ export interface DevoteesFilterBarProps {
   onSearchChange: (value: string) => void
   status: DevoteeStatusFilter
   onStatusChange: (value: DevoteeStatusFilter) => void
+  /** "12 devotees" — the count the server matched, not the loaded page's length. */
+  resultLabel: string
 }
 
-/** Search + status filter row above the KPI band. */
-export function DevoteesFilterBar({ search, onSearchChange, status, onStatusChange }: DevoteesFilterBarProps) {
+/** Search + status filter row above the KPI band. Both are applied by the server. */
+export function DevoteesFilterBar({ search, onSearchChange, status, onStatusChange, resultLabel }: DevoteesFilterBarProps) {
   return (
     <div className="flex flex-wrap items-center gap-2.5 px-7 pb-3.5">
       <div className="w-[280px] max-w-full">
@@ -38,6 +40,8 @@ export function DevoteesFilterBar({ search, onSearchChange, status, onStatusChan
           containerStyle={{ width: '100%' }}
         />
       </div>
+      <div className="flex-1" />
+      <span className="text-sm text-ink-subtle">{resultLabel}</span>
     </div>
   )
 }

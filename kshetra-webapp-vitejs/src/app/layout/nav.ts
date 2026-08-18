@@ -67,7 +67,7 @@ export const NAV: NavItem[] = [
   {
     id: 'app', label: 'App', icon: 'device-mobile', desc: 'The devotee app — accounts, messaging, media.', roles: ['Admin', 'Manager'], group: 3,
     children: [
-      { id: 'devotees', label: 'Devotees', icon: 'users-three', path: '/devotees', desc: 'App user accounts and booking history.', roles: ['Admin', 'Manager'] },
+      { id: 'devotees', label: 'Devotees', icon: 'users-three', path: '/devotees', desc: 'App user accounts and booking history.', roles: ['Admin', 'Manager'], permissions: [PERMISSIONS.viewDevotees, PERMISSIONS.viewCustomuser, PERMISSIONS.viewUserlist, PERMISSIONS.viewUserattribute] },
       { id: 'notifications', label: 'Notifications', icon: 'megaphone', path: '/notifications', desc: 'Broadcast messages to app users.', roles: ['Admin', 'Manager'], permissions: [PERMISSIONS.manageNotifications] },
       { id: 'media', label: 'Media', icon: 'music-notes', path: '/media', desc: 'Audio tracks and cover art for the app.', roles: ['Admin', 'Manager'] },
     ],

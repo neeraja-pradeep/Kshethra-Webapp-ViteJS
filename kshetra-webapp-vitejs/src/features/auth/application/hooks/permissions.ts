@@ -85,4 +85,24 @@ export const PERMISSIONS = {
    * says delete; the permission is the real one.
    */
   changeCustomuser: 'authentication.change_customuser',
+
+  /**
+   * App > Devotees. Reading the app's sign-ups is deliberately *not*
+   * `manageUsers`: that one mints staff accounts and picks their role, while a
+   * devotee account cannot be created here at all, so there is nothing to
+   * escalate to.
+   */
+  viewDevotees: 'rbac.view_devotees',
+  /**
+   * Suspend / reinstate. Gated alone, without `changeCustomuser`: that
+   * permission is what staffs the team and is withheld from Manager and App
+   * Manager precisely so neither can edit a user record. Flipping one devotee's
+   * sign-in is a different act, and pairing the two would leave only Admin able
+   * to action a screen the other two own.
+   */
+  manageDevotees: 'rbac.manage_devotees',
+  /** The family profiles behind the FAMILY column. Read by the list and detail. */
+  viewUserlist: 'temple_user.view_userlist',
+  /** The nakshatrams on those profiles. The detail call alone needs it. */
+  viewUserattribute: 'temple_user.view_userattribute',
 } as const
