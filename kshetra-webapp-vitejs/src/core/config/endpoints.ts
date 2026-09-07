@@ -14,6 +14,15 @@ export const AUTH_ENDPOINTS = {
   logout: '/auth/logout/',
 } as const
 
+/**
+ * The back office landing screen. One request carries every card — pooja
+ * bookings, counter takings, store fulfilment, poojari attention and devotees
+ * — counted server-side the same way the screens behind them count.
+ */
+export const DASHBOARD_ENDPOINTS = {
+  data: '/admin/dashboard/data/',
+} as const
+
 export const RBAC_ENDPOINTS = {
   myPermissions: '/rbac/me/permissions/',
   permissions: '/rbac/permissions/',
@@ -94,6 +103,15 @@ export const ADMIN_BOOKING_ENDPOINTS = {
   completeBookings: '/admin/bookings/complete/',
   assignBookings: '/admin/bookings/assign/',
   poojaris: '/admin/poojaris/',
+  /**
+   * The gods (pooja categories) whose shrine one poojari keeps.
+   *
+   * `GET` needs `manage_poojaris`, `PUT` needs `manage_poojari_gods` — choosing
+   * someone else's workload is a different act from reading it. The `PUT`
+   * replaces the whole list; there is no per-row write. Pointing either at an
+   * account that is not a poojari is a 404, not a 403.
+   */
+  poojariGods: (id: number) => `/admin/poojaris/${id}/gods/`,
 } as const
 
 /**

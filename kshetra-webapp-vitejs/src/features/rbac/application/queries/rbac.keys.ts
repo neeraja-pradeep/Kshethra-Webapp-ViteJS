@@ -17,4 +17,8 @@ export const rbacKeys = {
   assignableBaseRoles: () => [...rbacKeys.users(), 'assignable-base-roles'] as const,
   userList: (filters: UserFilters) => [...rbacKeys.users(), 'list', filters] as const,
   user: (id: number) => [...rbacKeys.users(), 'detail', id] as const,
+
+  /** A poojari's shrine list, and the catalogue its picker offers. */
+  poojariGods: (userId: number) => [...rbacKeys.users(), 'poojari-gods', userId] as const,
+  godOptions: () => [...rbacKeys.all, 'god-options'] as const,
 }

@@ -28,6 +28,14 @@ export const PERMISSIONS = {
    * the rest of the back office.
    */
   assignPoojari: 'rbac.assign_poojari',
+  /** Opening the poojari screens at all, including reading a shrine list. */
+  managePoojaris: 'rbac.manage_poojaris',
+  /**
+   * Choosing which gods a poojari serves. Split from `managePoojaris` because
+   * reading a roster and deciding somebody else's workload are different acts
+   * — Reports Manager holds the read half and not this one.
+   */
+  managePoojariGods: 'rbac.manage_poojari_gods',
   /**
    * Cancelling an order or single dates off it. Both move money — one through
    * the gateway, one as a reconciliation entry — so they sit behind their own

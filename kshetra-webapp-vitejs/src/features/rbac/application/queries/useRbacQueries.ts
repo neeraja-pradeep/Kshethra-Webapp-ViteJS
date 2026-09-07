@@ -8,6 +8,8 @@ import { fetchPermissions } from '@/features/rbac/application/usecases/fetchPerm
 import { fetchRole } from '@/features/rbac/application/usecases/fetchRole'
 import { fetchRoles } from '@/features/rbac/application/usecases/fetchRoles'
 import { fetchRoleUsers } from '@/features/rbac/application/usecases/fetchRoleUsers'
+import { fetchGodOptions } from '@/features/rbac/application/usecases/fetchGodOptions'
+import { fetchPoojariGods } from '@/features/rbac/application/usecases/fetchPoojariGods'
 import { fetchUser } from '@/features/rbac/application/usecases/fetchUser'
 import { fetchUsers } from '@/features/rbac/application/usecases/fetchUsers'
 import type { RoleFilters, UserFilters } from '@/features/rbac/domain/repositories/rbac.repository'
@@ -78,5 +80,29 @@ export function useRbacUserQuery(id: number | null) {
     queryKey: rbacKeys.user(id ?? 0),
     queryFn: async () => unwrap(await fetchUser(id ?? 0)),
     enabled: id !== null,
+  })
+}
+
+/**
+ * One poojari's shrine list.
+ *
+ * `enabled` is the caller's guard, not a nicety: the endpoint 404s on any
+ * account that is not a poojari, so firing it for a clerk would surface an
+ * error for a card that should simply not be drawn.
+ */
+export function usePoojariGodsQuery(userId: number | null, enabled: boolean) {
+  return useQuery({
+    queryKey: rbacKeys.poojariGods(userId ?? 0),
+    queryFn: async () => unwrap(await fetchPoojariGods(userId as number)),
+    enabled: enabled && userId !== null,
+  })
+}
+
+/** The gods the picker offers. Fetched only while a picker can be opened. */
+export function useGodOptionsQuery(enabled: boolean) {
+  return useQuery({
+    queryKey: rbacKeys.godOptions(),
+    queryFn: async () => unwrap(await fetchGodOptions()),
+    enabled,
   })
 }

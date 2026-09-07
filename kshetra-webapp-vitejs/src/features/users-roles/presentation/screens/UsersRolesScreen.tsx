@@ -12,6 +12,7 @@ import {
   useCreateStaffUserMutation,
   useDeactivateStaffUserMutation,
   useDeleteRoleMutation,
+  useSetPoojariGodsMutation,
   useSetUserRolesMutation,
   useSetStaffUserPasswordMutation,
   useUnassignRoleFromUsersMutation,
@@ -20,7 +21,9 @@ import {
 } from '@/features/rbac/application/queries/useRbacMutations'
 import {
   useAssignableBaseRolesQuery,
+  useGodOptionsQuery,
   usePermissionCatalogueQuery,
+  usePoojariGodsQuery,
   useRbacUserQuery,
   useRbacUsersQuery,
   useRoleQuery,
@@ -38,10 +41,12 @@ import {
   staffUserFromRecord,
   type StaffUserFormValues,
 } from '@/features/rbac/presentation/lib/staffUserForm'
+import { POOJARI_ROLE } from '@/features/rbac/presentation/lib/staffUserForm'
 import { StaffUserLifecycle } from '@/features/rbac/presentation/components/StaffUserLifecycle'
 import { RolesTabView } from '@/features/rbac/presentation/components/RolesTabView'
 import { EmptyFilteredMessage } from '@/features/users-roles/presentation/components/EmptyFilteredMessage'
 import { ConfirmUserDialog, type ConfirmKind } from '@/features/users-roles/presentation/components/ConfirmUserDialog'
+import { PoojariShrinesPanel } from '@/features/users-roles/presentation/components/PoojariShrinesPanel'
 import { UserDetailView } from '@/features/users-roles/presentation/components/UserDetailView'
 import { UserRolesEditor } from '@/features/users-roles/presentation/components/UserRolesEditor'
 import { UsersListView } from '@/features/users-roles/presentation/components/UsersListView'
@@ -90,6 +95,9 @@ export function UsersRolesScreen() {
   const canCreateUser = useCanAll([PERMISSIONS.manageUsers, PERMISSIONS.addCustomuser])
   /** Editing, deactivating and reactivating all ask for `change`, never `delete`. */
   const canEditUser = useCanAll([PERMISSIONS.manageUsers, PERMISSIONS.changeCustomuser])
+  /** Reading a roster and deciding somebody's workload are separate permissions. */
+  const canViewShrines = can(PERMISSIONS.managePoojaris)
+  const canEditShrines = can(PERMISSIONS.managePoojariGods)
 
   const [tab, setTab] = useState<Tab>('users')
 
@@ -151,6 +159,19 @@ export function UsersRolesScreen() {
 
   const detailQuery = useRbacUserQuery(view === 'list' ? null : openId)
   const setRoles = useSetUserRolesMutation()
+
+  /**
+   * Shrines, for a poojari account only.
+   *
+   * Gated on the base role because the endpoint 404s on anybody else — asking
+   * for a clerk's shrine list would surface an error for a card that should
+   * simply not be drawn.
+   */
+  const isPoojari = detailQuery.data?.baseRole === POOJARI_ROLE
+  const shrinesEnabled = view === 'detail' && isPoojari && canViewShrines
+  const poojariGodsQuery = usePoojariGodsQuery(openId, shrinesEnabled)
+  const godOptionsQuery = useGodOptionsQuery(shrinesEnabled && canEditShrines)
+  const setShrines = useSetPoojariGodsMutation()
 
   /**
    * The whole catalogue, unfiltered and fetched once.
@@ -521,6 +542,32 @@ export function UsersRolesScreen() {
           onClose={handleCloseDetail}
           onEditRoles={handleEditRoles}
           onEditUser={handleEditUser}
+          shrines={
+            shrinesEnabled ? (
+              <PoojariShrinesPanel
+                gods={poojariGodsQuery.data ?? null}
+                options={godOptionsQuery.data ?? []}
+                loading={poojariGodsQuery.isPending}
+                optionsLoading={godOptionsQuery.isPending}
+                saving={setShrines.isPending}
+                canEdit={canEditShrines}
+                error={
+                  poojariGodsQuery.isError
+                    ? (toFailure(poojariGodsQuery.error)?.message ?? 'The shrine list could not be loaded.')
+                    : setShrines.isError
+                      ? (toFailure(setShrines.error)?.message ?? 'The shrine list could not be saved.')
+                      : null
+                }
+                onSave={(godIds) =>
+                  setShrines.mutate({
+                    userId: detailQuery.data.id,
+                    godIds,
+                    poojariName: detailQuery.data.username,
+                  })
+                }
+              />
+            ) : undefined
+          }
           lifecycle={
             <StaffUserLifecycle
               user={detailQuery.data}

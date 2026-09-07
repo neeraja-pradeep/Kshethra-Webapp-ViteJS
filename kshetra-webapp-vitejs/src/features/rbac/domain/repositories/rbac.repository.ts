@@ -14,6 +14,7 @@ import type {
   SetRolesOutcome,
   UpdateStaffUserInput,
 } from '@/features/rbac/domain/entities/rbac-user'
+import type { PoojariGodOption, PoojariGods } from '@/features/rbac/domain/entities/poojari-god'
 
 export interface PermissionFilters {
   /** Matches name, codename or model. */
@@ -76,6 +77,24 @@ export interface RbacRepository {
 
   /** The staff roles the base-role dropdown may offer. Needs `manage_users`. */
   fetchAssignableBaseRoles(): Promise<Result<readonly AssignableBaseRole[]>>
+
+  /**
+   * The shrine list of one poojari. 404s on any account that is not one, so
+   * callers must not fire it for an arbitrary user.
+   */
+  fetchPoojariGods(userId: number): Promise<Result<PoojariGods>>
+  /**
+   * Replaces the whole list; `[]` clears it and returns the poojari to unscoped.
+   * `poojariName` is carried through because the write's response does not name
+   * them — pass what the caller already displays.
+   */
+  setPoojariGods(
+    userId: number,
+    godIds: readonly number[],
+    poojariName?: string,
+  ): Promise<Result<PoojariGods>>
+  /** Every god the picker may offer — the whole pooja-category catalogue. */
+  fetchGodOptions(): Promise<Result<readonly PoojariGodOption[]>>
   createStaffUser(input: CreateStaffUserInput): Promise<Result<RbacUserDetail>>
   updateStaffUser(id: number, changes: UpdateStaffUserInput): Promise<Result<RbacUserDetail>>
   /** Deactivates. The row is kept so past activity stays attributable. */

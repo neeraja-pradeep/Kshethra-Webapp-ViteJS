@@ -1,6 +1,12 @@
 import { z } from 'zod'
 
-import type { AssignedRole, RbacUser, RbacUserDetail, SetRolesOutcome } from '@/features/rbac/domain/entities/rbac-user'
+import type {
+  AssignedRole,
+  RbacUser,
+  RbacUserDetail,
+  SetRolesOutcome,
+  UserModuleAccess,
+} from '@/features/rbac/domain/entities/rbac-user'
 
 const assignedRoleSchema = z.object({
   id: z.number(),
@@ -23,9 +29,24 @@ export const rbacUserResponseSchema = z.object({
   created_at: z.string(),
 })
 
+/**
+ * One module's resolved capabilities. Capability keys vary per module, so the
+ * record is open — a module gaining an action server-side must not fail the
+ * whole response here.
+ */
+const moduleAccessSchema = z.object({
+  label: z.string(),
+  capabilities: z.record(z.string(), z.boolean()),
+})
+
 /** `GET rbac/users/{id}/` — the row plus the flattened resolved set. */
 export const rbacUserDetailResponseSchema = rbacUserResponseSchema.extend({
   effective_permissions: z.array(z.string()),
+  /**
+   * `nullish` so a backend that predates the field still parses; the panel
+   * falls back to the raw codenames when the list comes back empty.
+   */
+  modules: z.record(z.string(), moduleAccessSchema).nullish(),
 })
 
 /** `POST users/{id}/set_roles/` — the detail shape plus what changed. */
@@ -56,8 +77,30 @@ export function toRbacUser(dto: RbacUserResponseDto): RbacUser {
   }
 }
 
+/**
+ * Object → array, preserving the server's key order.
+ *
+ * `Object.entries` keeps insertion order for string keys, and the server sends
+ * modules in its own render order — so the panel lists them the way the API
+ * meant them to be read rather than alphabetically.
+ */
+function toModuleAccess(modules: NonNullable<RbacUserDetailResponseDto['modules']>): UserModuleAccess[] {
+  return Object.entries(modules).map(([key, module]) => ({
+    key,
+    label: module.label,
+    capabilities: Object.entries(module.capabilities).map(([capabilityKey, granted]) => ({
+      key: capabilityKey,
+      granted,
+    })),
+  }))
+}
+
 export function toRbacUserDetail(dto: RbacUserDetailResponseDto): RbacUserDetail {
-  return { ...toRbacUser(dto), effectivePermissions: dto.effective_permissions }
+  return {
+    ...toRbacUser(dto),
+    effectivePermissions: dto.effective_permissions,
+    modules: dto.modules ? toModuleAccess(dto.modules) : [],
+  }
 }
 
 export function toSetRolesOutcome(dto: SetRolesResponseDto): SetRolesOutcome {

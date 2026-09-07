@@ -43,4 +43,12 @@ export const QUERY_ROOTS = {
    */
   devotees: ['devotees'],
 
+  /**
+   * The landing screen's one aggregate call. Its own root because every other
+   * root can invalidate it: a counter sale, a fulfilment change and a booking
+   * completion all move a number on it, and none of them can guess a sub-key
+   * of a cache they do not own.
+   */
+  dashboard: ['dashboard'],
+
 } as const

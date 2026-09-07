@@ -43,10 +43,44 @@ export interface RbacUser {
   readonly createdAt: string
 }
 
+/**
+ * One product module as the **server** resolves it for a user.
+ *
+ * Distinct from `ProductModule` in `module-map.ts`: that map is the client's
+ * stand-in for a `GET /rbac/modules/` the backend has not shipped, and it
+ * describes what a module *could* grant. This is the server's own answer for
+ * one account, carrying its own label — so it stays right as the backend adds
+ * modules the client map has never heard of.
+ */
+export interface UserModuleAccess {
+  /** Stable key, e.g. `counter_bookings`. */
+  readonly key: string
+  /** The server's display text, e.g. "Counter Bookings". */
+  readonly label: string
+  /**
+   * Every capability the module defines, each held or not. Denied ones are
+   * kept: "cannot void a sale" is what an operator is checking for, and
+   * dropping the false ones would leave them unable to tell a withheld
+   * capability from one this module never had.
+   */
+  readonly capabilities: readonly UserModuleCapability[]
+}
+
+export interface UserModuleCapability {
+  readonly key: string
+  readonly granted: boolean
+}
+
 /** `rbac/users/{id}/` — the row plus the flattened resolved permission set. */
 export interface RbacUserDetail extends RbacUser {
   /** Base role's permissions unioned with every assigned role's. */
   readonly effectivePermissions: readonly string[]
+  /**
+   * The same answer grouped the way the product speaks, straight from the
+   * server. Empty only if the backend predates the field — the panel falls
+   * back to the raw codenames then.
+   */
+  readonly modules: readonly UserModuleAccess[]
 }
 
 /**

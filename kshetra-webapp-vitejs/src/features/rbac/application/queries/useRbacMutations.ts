@@ -1,7 +1,8 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { unwrap } from '@/core/error/result'
 
+import { rbacKeys } from '@/features/rbac/application/queries/rbac.keys'
 import { useRbacInvalidation } from '@/features/rbac/application/queries/useRbacInvalidation'
 import { activateStaffUser } from '@/features/rbac/application/usecases/activateStaffUser'
 import { assignRoleToUsers } from '@/features/rbac/application/usecases/assignRoleToUsers'
@@ -11,6 +12,7 @@ import { createStaffUser } from '@/features/rbac/application/usecases/createStaf
 import { deactivateStaffUser } from '@/features/rbac/application/usecases/deactivateStaffUser'
 import { deleteRole } from '@/features/rbac/application/usecases/deleteRole'
 import { removeUserRoles } from '@/features/rbac/application/usecases/removeUserRoles'
+import { setPoojariGods } from '@/features/rbac/application/usecases/setPoojariGods'
 import { setStaffUserPassword } from '@/features/rbac/application/usecases/setStaffUserPassword'
 import { setUserRoles } from '@/features/rbac/application/usecases/setUserRoles'
 import { unassignRoleFromUsers } from '@/features/rbac/application/usecases/unassignRoleFromUsers'
@@ -147,5 +149,31 @@ export function useSetStaffUserPasswordMutation() {
     mutationFn: async ({ id, password }: { id: number; password: string }) =>
       unwrap(await setStaffUserPassword(id, password)),
     onSuccess: invalidate,
+  })
+}
+
+/**
+ * Replaces a poojari's shrine list.
+ *
+ * Deliberately **not** `useRbacInvalidation`: a shrine list decides which
+ * bookings the poojari app shows them, not what they may do. No permission
+ * moves, so refreshing the signed-in session and every role and user list would
+ * be work with nothing to show for it. Only this poojari's list is stale.
+ */
+export function useSetPoojariGodsMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      userId,
+      godIds,
+      poojariName,
+    }: {
+      userId: number
+      /** The whole list — anything omitted is dropped. `[]` returns them to unscoped. */
+      godIds: readonly number[]
+      poojariName?: string
+    }) => unwrap(await setPoojariGods(userId, godIds, poojariName)),
+    onSuccess: (_result, { userId }) =>
+      queryClient.invalidateQueries({ queryKey: rbacKeys.poojariGods(userId) }),
   })
 }

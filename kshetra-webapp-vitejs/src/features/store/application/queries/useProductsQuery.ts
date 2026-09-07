@@ -14,12 +14,17 @@ import type { ProductFilters } from '@/features/store/domain/repositories/produc
  * `keepPreviousData` stops the table blanking on every keystroke, page turn and
  * filter change: the previous page stays put, dimmed by the caller, until the
  * new one lands.
+ *
+ * `enabled` defaults to on — the catalogue screen is gated by its own route.
+ * It exists for callers reached without `view_product`, such as the dashboard's
+ * inventory card, where firing this would 403 on a screen the user may see.
  */
-export function useProductsQuery(filters: ProductFilters) {
+export function useProductsQuery(filters: ProductFilters, enabled = true) {
   return useQuery({
     queryKey: productKeys.list(filters),
     queryFn: async () => unwrap(await fetchProducts(filters)),
     placeholderData: keepPreviousData,
+    enabled,
   })
 }
 

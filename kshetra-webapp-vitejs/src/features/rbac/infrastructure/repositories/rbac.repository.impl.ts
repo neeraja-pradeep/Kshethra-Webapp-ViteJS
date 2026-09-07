@@ -3,6 +3,7 @@ import { err, ok, type Result } from '@/core/error/result'
 import type { Failure } from '@/core/error/failure'
 
 import type { PermissionCatalogue } from '@/features/rbac/domain/entities/permission'
+import type { PoojariGodOption, PoojariGods } from '@/features/rbac/domain/entities/poojari-god'
 import type {
   CreateRoleInput,
   DeleteRoleOutcome,
@@ -25,6 +26,16 @@ import type {
   UserFilters,
 } from '@/features/rbac/domain/repositories/rbac.repository'
 import { toAssignableBaseRoles } from '@/features/rbac/infrastructure/data-sources/remote/assignableRole.response'
+import {
+  toGodOption,
+  toPoojariGods,
+  toPoojariGodsFromWrite,
+} from '@/features/rbac/infrastructure/data-sources/remote/poojariGod.response'
+import {
+  getGodOptions,
+  getPoojariGods,
+  putPoojariGods,
+} from '@/features/rbac/infrastructure/data-sources/remote/poojariGods.api'
 import { toPermissionCatalogue } from '@/features/rbac/infrastructure/data-sources/remote/permission.response'
 import {
   toCreateStaffUserRequest,
@@ -245,6 +256,40 @@ export const rbacRepository: RbacRepository = {
   async setStaffUserPassword(id: number, password: string): Promise<Result<RbacUserDetail>> {
     try {
       return ok(toRbacUserDetail(await postSetUserPassword(id, password)))
+    } catch (error) {
+      return err(mapHttpError(error))
+    }
+  },
+
+  async fetchPoojariGods(userId: number): Promise<Result<PoojariGods>> {
+    try {
+      return ok(toPoojariGods(await getPoojariGods(userId)))
+    } catch (error) {
+      return err(mapHttpError(error))
+    }
+  },
+
+  /**
+   * The write answers with the new list but no `poojari` block, so the caller's
+   * own record of who it acted on carries the identity across — a second GET
+   * would only re-read what the caller already knows.
+   */
+  async setPoojariGods(
+    userId: number,
+    godIds: readonly number[],
+    poojariName = '',
+  ): Promise<Result<PoojariGods>> {
+    try {
+      const written = await putPoojariGods(userId, godIds)
+      return ok(toPoojariGodsFromWrite(written, { poojariId: userId, poojariName, assignments: [] }))
+    } catch (error) {
+      return err(mapHttpError(error))
+    }
+  },
+
+  async fetchGodOptions(): Promise<Result<readonly PoojariGodOption[]>> {
+    try {
+      return ok((await getGodOptions()).map(toGodOption))
     } catch (error) {
       return err(mapHttpError(error))
     }
