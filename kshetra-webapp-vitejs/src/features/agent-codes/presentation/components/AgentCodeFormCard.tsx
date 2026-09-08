@@ -4,6 +4,7 @@ import { Input, Switch } from '@/shared/ui'
 import { cn } from '@/shared/lib/cn'
 
 import type { AgentCodeStatus } from '@/features/agent-codes/domain/entities/agent-code'
+import { agentCodeStatusLabel } from '@/features/agent-codes/presentation/lib/agentCodeDisplay'
 
 export interface AgentCodeFormValues {
   readonly code: string
@@ -62,7 +63,7 @@ export function AgentCodeFormCard({ mode, form, errors, fromDisplay, toDisplay, 
             <FieldView label="Usage limit" value={form.limit ? form.limit : 'Unlimited'} />
           </div>
           <div className="flex items-center gap-1.75 pt-1">
-            <span className={cn('h-2 w-2 rounded-full', form.status === 'Active' ? 'bg-success' : 'bg-gray-400')} />
+            <span className={cn('h-2 w-2 rounded-full', form.status === 'active' ? 'bg-success' : 'bg-gray-400')} />
             <span className="text-sm font-medium text-ink-strong">{form.status}</span>
           </div>
         </>
@@ -114,7 +115,7 @@ export function AgentCodeFormCard({ mode, form, errors, fromDisplay, toDisplay, 
           </div>
           <div className="flex items-center gap-2.5 pt-1">
             <span className="text-sm font-medium text-ink">Status</span>
-            <Switch checked={form.status === 'Active'} label={form.status} onChange={onStatusToggle} />
+            <Switch checked={form.status === 'active'} label={agentCodeStatusLabel(form.status)} onChange={onStatusToggle} />
           </div>
         </>
       )}

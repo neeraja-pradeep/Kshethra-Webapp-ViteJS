@@ -51,4 +51,11 @@ export const QUERY_ROOTS = {
    */
   dashboard: ['dashboard'],
 
+  /**
+   * Agent codes. Its own root because a code's usage is counted from bookings
+   * and orders — a write there can move a figure here, and neither feature may
+   * guess the other's sub-keys.
+   */
+  agentCodes: ['agent-codes'],
+
 } as const

@@ -7,10 +7,14 @@ export interface AgentCodeDetailHeaderProps {
   onBack: () => void
   onStartEdit: () => void
   onSave: () => void
+  /** `add`/`change_agentcode`. Without it Edit is not offered — the API would 403. */
+  canEdit?: boolean
+  /** A save is in flight. */
+  saving?: boolean
 }
 
 /** Sticky top bar of the create/edit/view overlay: back, breadcrumb, mode actions. */
-export function AgentCodeDetailHeader({ title, isView, isEditing, onBack, onStartEdit, onSave }: AgentCodeDetailHeaderProps) {
+export function AgentCodeDetailHeader({ title, isView, isEditing, onBack, onStartEdit, onSave, canEdit = true, saving = false }: AgentCodeDetailHeaderProps) {
   return (
     <div className="flex h-14 flex-shrink-0 items-center gap-2.5 border-b border-stroke bg-card px-6">
       <button
@@ -32,17 +36,17 @@ export function AgentCodeDetailHeader({ title, isView, isEditing, onBack, onStar
           View only
         </span>
       )}
-      {isView && (
+      {isView && canEdit && (
         <Button theme="primary" iconLeft={<Icon name="pencil-simple" size={15} />} onClick={onStartEdit}>
           Edit
         </Button>
       )}
       {isEditing && (
         <>
-          <Button theme="default" variant="outline" onClick={onBack}>
+          <Button theme="default" variant="outline" disabled={saving} onClick={onBack}>
             Cancel
           </Button>
-          <Button theme="primary" iconLeft={<Icon name="check" size={16} />} onClick={onSave}>
+          <Button theme="primary" loading={saving} iconLeft={<Icon name="check" size={16} />} onClick={onSave}>
             Save code
           </Button>
         </>

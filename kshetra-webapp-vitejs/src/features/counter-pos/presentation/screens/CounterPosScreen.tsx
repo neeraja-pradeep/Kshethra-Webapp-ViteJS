@@ -72,7 +72,6 @@ export function CounterPosScreen() {
 
   // ── server state ──
   const today = todayISO()
-  const poojasQuery = usePoojasQuery()
   const godsQuery = useGodsQuery()
   const nakshatramsQuery = useNakshatramsQuery()
   const summaryQuery = useCollectionSummaryQuery(today)
@@ -84,6 +83,7 @@ export function CounterPosScreen() {
   const [peopleSeq, setPeopleSeq] = useState(2)
   const [bookingSeq, setBookingSeq] = useState(1)
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [browseOpen, setBrowseOpen] = useState(false)
   const [browseGodId, setBrowseGodId] = useState<number | null>(null)
   const [config, setConfig] = useState<ConfigState | null>(null)
@@ -101,6 +101,9 @@ export function CounterPosScreen() {
   const [cpMethod, setCpMethod] = useState<PaymentMethod>('cash')
   const [cpReceipt, setCpReceipt] = useState<CounterReceipt | null>(null)
 
+  // Both catalogue and payments search server-side, so each waits on its own
+  // debounced term — hence declared here rather than with the other queries.
+  const poojasQuery = usePoojasQuery(debouncedSearch || undefined, browseGodId)
   const agentBookingsQuery = useAgentBookingsQuery({ search: cpDebouncedSearch || undefined, enabled: cpOpen })
 
   const gods = useMemo(() => godsQuery.data ?? [], [godsQuery.data])
@@ -134,15 +137,21 @@ export function CounterPosScreen() {
   // The server rejects the whole sale past this, so stop it before the operator pays.
   const overOccurrenceCap = countOccurrences(booking) > MAX_OCCURRENCES_PER_SALE
 
-  const activeGods = useMemo(() => gods.filter((g) => g.status === 'Active'), [gods])
+  /**
+   * A god with no poojas is left off the browse row: its chip could only ever
+   * lead to an empty list, and a filter that dead-ends reads as a broken till
+   * rather than an empty shrine. Most of the temple's gods have none.
+   */
+  const activeGods = useMemo(
+    () => gods.filter((g) => g.status === 'Active' && g.poojasCount > 0),
+    [gods],
+  )
 
-  const matchedPoojas = useMemo(() => {
-    let list = poojas
-    if (browseGodId !== null) list = list.filter((p) => p.godIds.includes(browseGodId))
-    const q = search.trim().toLowerCase()
-    if (q) list = list.filter((p) => p.name.toLowerCase().includes(q))
-    return list.slice().sort((a, b) => a.name.localeCompare(b.name))
-  }, [poojas, browseGodId, search])
+  /**
+   * Both the search and the god chip are the server's — see `usePoojasQuery`.
+   * Nothing is filtered here; only the display order is decided locally.
+   */
+  const matchedPoojas = useMemo(() => poojas.slice().sort((a, b) => a.name.localeCompare(b.name)), [poojas])
   const results = matchedPoojas.slice(0, MAX_RESULTS)
 
   const cpRows = agentBookingsQuery.data ?? []
@@ -174,6 +183,12 @@ export function CounterPosScreen() {
     return () => window.removeEventListener('keydown', onKeyDown)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [receiptOpen, payOpen, config, cpOpen, browseOpen])
+
+  // Search the catalogue server-side, but not on every keystroke.
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(search.trim()), SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(id)
+  }, [search])
 
   // Search the counter-payments list server-side, but not on every keystroke.
   useEffect(() => {
@@ -484,6 +499,7 @@ export function CounterPosScreen() {
               onSelectGod={(id) => setBrowseGodId((prev) => (prev === id ? null : id))}
               results={results}
               resultCount={matchedPoojas.length}
+              searching={poojasQuery.isFetching}
               godNameOf={godNameOf}
               onPick={openConfigForNew}
             />

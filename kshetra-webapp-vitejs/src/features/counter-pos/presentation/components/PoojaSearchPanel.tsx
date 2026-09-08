@@ -16,6 +16,8 @@ export interface PoojaSearchPanelProps {
   results: readonly Pooja[]
   /** Total matches before the display list is capped — may exceed `results.length`. */
   resultCount: number
+  /** A server search is in flight. The previous matches stay put underneath. */
+  searching: boolean
   godNameOf: (godId: number | undefined) => string
   onPick: (pooja: Pooja) => void
 }
@@ -31,6 +33,7 @@ export function PoojaSearchPanel({
   onSelectGod,
   results,
   resultCount,
+  searching,
   godNameOf,
   onPick,
 }: PoojaSearchPanelProps) {
@@ -55,7 +58,7 @@ export function PoojaSearchPanel({
             Browse by god
           </button>
           <div className="flex-1" />
-          <span className="text-xs text-ink-subtle">{resultCount} poojas</span>
+          <span className="text-xs text-ink-subtle">{searching ? 'Searching…' : `${resultCount} poojas`}</span>
         </div>
         {browseOpen && (
           <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -97,7 +100,7 @@ export function PoojaSearchPanel({
             </span>
           </button>
         ))}
-        {results.length === 0 && (
+        {results.length === 0 && !searching && (
           <div className="px-7 py-7 text-center text-sm text-ink-subtle">No poojas match. Try another name or browse by god.</div>
         )}
       </div>

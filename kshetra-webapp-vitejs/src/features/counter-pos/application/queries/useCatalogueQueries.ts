@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 
 import { unwrap } from '@/core/error/result'
 
@@ -16,12 +16,29 @@ import { fetchPoojas } from '@/features/counter-pos/application/usecases/fetchPo
  */
 const CATALOGUE_STALE_TIME_MS = 5 * 60 * 1000
 
-/** Every active pooja, fetched once — the endpoint is unpaginated, so search filters locally. */
-export function usePoojasQuery() {
+/**
+ * The active poojas, narrowed by the server when the operator types.
+ *
+ * Searching server-side rather than filtering the loaded rows is what lets
+ * "haridra homam" find ഹരിദ്ര ഹോമം and "ganapathi" find every pooja at that
+ * god's shrine — neither is expressible as an `includes()` over a name.
+ *
+ * `keepPreviousData` is what keeps the till usable while typing: the previous
+ * matches stay on screen instead of the list emptying between keystrokes, which
+ * at a counter with somebody waiting reads as "no such pooja".
+ *
+ * `godId` is the browse chip, also applied server-side: the loaded rows are
+ * already narrowed by `search`, so filtering them again would search within the
+ * search rather than the catalogue.
+ *
+ * Pass a **debounced** term — this fires one request per distinct value.
+ */
+export function usePoojasQuery(search?: string, godId: number | null = null) {
   return useQuery({
-    queryKey: counterKeys.poojas(),
-    queryFn: async () => unwrap(await fetchPoojas()),
+    queryKey: counterKeys.poojas(search, godId),
+    queryFn: async () => unwrap(await fetchPoojas(search, godId ?? undefined)),
     staleTime: CATALOGUE_STALE_TIME_MS,
+    placeholderData: keepPreviousData,
   })
 }
 

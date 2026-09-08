@@ -11,11 +11,13 @@ import { toNakshatra } from '@/features/counter-pos/infrastructure/data-sources/
 import { toPooja } from '@/features/counter-pos/infrastructure/data-sources/remote/pooja.response'
 
 export const catalogueRepository: CatalogueRepository = {
-  async fetchPoojas(): Promise<Result<readonly Pooja[]>> {
+  async fetchPoojas(search?: string, godId?: number): Promise<Result<readonly Pooja[]>> {
     try {
       // There is no server-side "active only" filter on this endpoint, so the
       // inactive ones are dropped here — booking one would fail the whole sale.
-      const poojas = (await getPoojas()).map(toPooja).filter((pooja) => pooja.status === 'Active')
+      // This still applies to a searched list: the server matches on name and
+      // god, not on whether the till may sell the row.
+      const poojas = (await getPoojas(search, godId)).map(toPooja).filter((pooja) => pooja.status === 'Active')
       return ok(poojas)
     } catch (error) {
       return err(mapHttpError(error))

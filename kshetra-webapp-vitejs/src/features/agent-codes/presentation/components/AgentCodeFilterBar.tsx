@@ -9,8 +9,8 @@ export type AgentCodeValidityFilter = 'any' | AgentCodeValidityState
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All statuses' },
-  { value: 'Active', label: 'Active' },
-  { value: 'Inactive', label: 'Inactive' },
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
 ]
 
 const VALIDITY_OPTIONS = [

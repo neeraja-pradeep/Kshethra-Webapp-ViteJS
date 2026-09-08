@@ -11,7 +11,7 @@ import { AgentCodeStatusCell } from './AgentCodeStatusCell'
 
 /** One row of the agent-code list table — a display-ready projection of an AgentCode. */
 export interface AgentCodeRow {
-  readonly id: string
+  readonly id: number
   readonly code: string
   readonly description: string
   readonly validity: string
@@ -28,7 +28,7 @@ export interface AgentCodesTableProps {
   sortDir: 'asc' | 'desc'
   onSort: (key: AgentCodeSortKey) => void
   onRowClick: (row: AgentCodeRow) => void
-  onToggleStatus: (id: string) => void
+  onToggleStatus: (id: number) => void
   empty: ReactNode
 }
 

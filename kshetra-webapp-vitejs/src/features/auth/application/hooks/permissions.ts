@@ -109,6 +109,14 @@ export const PERMISSIONS = {
    * to action a screen the other two own.
    */
   manageDevotees: 'rbac.manage_devotees',
+  /**
+   * Agent codes. Reading is deliberately wide — Counter Staff has to look a
+   * code up while settling a booking — so only the three writes are gated.
+   */
+  viewAgentCode: 'booking.view_agentcode',
+  addAgentCode: 'booking.add_agentcode',
+  changeAgentCode: 'booking.change_agentcode',
+  deleteAgentCode: 'booking.delete_agentcode',
   /** The family profiles behind the FAMILY column. Read by the list and detail. */
   viewUserlist: 'temple_user.view_userlist',
   /** The nakshatrams on those profiles. The detail call alone needs it. */

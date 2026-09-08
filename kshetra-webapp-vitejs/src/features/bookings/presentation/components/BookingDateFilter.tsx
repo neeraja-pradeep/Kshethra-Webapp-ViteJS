@@ -120,7 +120,7 @@ export function BookingDateFilter({ mode, onModeChange, singleDate, onSingleDate
   const rangeEnd = isRange ? (pendingStart ? '' : rangeTo) : ''
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="relative shrink-0" ref={containerRef}>
       <button
         type="button"
         onClick={openPopover}
@@ -139,7 +139,7 @@ export function BookingDateFilter({ mode, onModeChange, singleDate, onSingleDate
           <div
             role="dialog"
             aria-label="Choose date"
-            className="absolute left-0 top-9.5 z-menu flex w-[308px] max-w-full flex-col gap-2.75 rounded-2xl bg-card p-3.5 shadow-lg"
+            className="absolute left-0 top-9.5 z-menu flex w-[308px] min-w-[308px] flex-col gap-2.75 rounded-2xl bg-card p-3.5 shadow-lg"
           >
             <div className="flex gap-1 rounded-lg bg-active p-0.75">
               {(['all', 'single', 'range'] as const).map((m) => (

@@ -136,6 +136,21 @@ export const ADMIN_ORDER_ENDPOINTS = {
 } as const
 
 /**
+ * Agent codes — the codes a devotee applies in the app so a booking becomes
+ * payable at the temple counter instead of online.
+ *
+ * `newCode` is a dedicated create path rather than a POST to the list, and
+ * `codeStatus` exists so the list's toggle cannot post a stale copy of every
+ * other field back with it.
+ */
+export const AGENT_CODE_ENDPOINTS = {
+  codes: '/admin/agent-codes/',
+  newCode: '/admin/agent-codes/new/',
+  code: (id: number) => `/admin/agent-codes/${id}/`,
+  codeStatus: (id: number) => `/admin/agent-codes/${id}/status/`,
+} as const
+
+/**
  * App > Devotees — the app's sign-ups.
  *
  * A separate resource from `RBAC_ENDPOINTS.users`, which is staff and poojaris:

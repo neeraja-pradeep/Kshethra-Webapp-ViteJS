@@ -6,7 +6,12 @@ import type { AgentBookingFilters } from '@/features/counter-pos/domain/reposito
 export const counterKeys = {
   all: QUERY_ROOTS.counter,
 
-  poojas: () => [...counterKeys.all, 'poojas'] as const,
+  /**
+   * The catalogue. Keyed by the search term so each one caches separately and
+   * the unsearched list — the till's default view — stays warm behind them.
+   */
+  poojas: (search = '', godId: number | null = null) =>
+    [...counterKeys.all, 'poojas', search, godId] as const,
   gods: () => [...counterKeys.all, 'gods'] as const,
   nakshatrams: () => [...counterKeys.all, 'nakshatrams'] as const,
 
