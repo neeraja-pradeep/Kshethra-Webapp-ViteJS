@@ -67,4 +67,12 @@ export const QUERY_ROOTS = {
   /** App > Media — the audio the devotee app plays. */
   media: ['media'],
 
+  /**
+   * App > Temple location — the attendance geofence's sites. Its own root: the
+   * radius here decides whether a poojari's mark is accepted, so an edit has to
+   * reach the attendance screens without either feature guessing the other's
+   * sub-keys.
+   */
+  templeLocations: ['temple-locations'],
+
 } as const

@@ -133,6 +133,17 @@ export const PERMISSIONS = {
   addAgentCode: 'booking.add_agentcode',
   changeAgentCode: 'booking.change_agentcode',
   deleteAgentCode: 'booking.delete_agentcode',
+  /**
+   * App > Temple location — the attendance geofence.
+   *
+   * Writing is deliberately narrower than reading: somebody who can widen a
+   * radius to a kilometre has turned the geofence off without touching a single
+   * attendance row. Poojaris hold `view` and nothing more.
+   */
+  viewTempleLocation: 'temple_poojari.view_templelocation',
+  addTempleLocation: 'temple_poojari.add_templelocation',
+  changeTempleLocation: 'temple_poojari.change_templelocation',
+  deleteTempleLocation: 'temple_poojari.delete_templelocation',
   /** The family profiles behind the FAMILY column. Read by the list and detail. */
   viewUserlist: 'temple_user.view_userlist',
   /** The nakshatrams on those profiles. The detail call alone needs it. */

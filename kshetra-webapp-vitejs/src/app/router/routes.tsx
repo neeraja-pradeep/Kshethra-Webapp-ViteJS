@@ -17,6 +17,7 @@ import { OrdersScreen } from '@/features/orders/presentation/screens/OrdersScree
 import { GodsScreen } from '@/features/poojas/presentation/screens/GodsScreen'
 import { PoojasScreen } from '@/features/poojas/presentation/screens/PoojasScreen'
 import { ReportsScreen } from '@/features/reports/presentation/screens/ReportsScreen'
+import { TempleLocationsScreen } from '@/features/temple-locations/presentation/screens/TempleLocationsScreen'
 import { StoreCategoriesScreen } from '@/features/store/presentation/screens/StoreCategoriesScreen'
 import { StoreOrdersScreen } from '@/features/store/presentation/screens/StoreOrdersScreen'
 import { StoreProductsScreen } from '@/features/store/presentation/screens/StoreProductsScreen'
@@ -44,6 +45,7 @@ const SHELL_SCREENS: ReadonlyArray<readonly [path: string, screen: ComponentType
   ['/media', MediaScreen],
   ['/agent-codes', AgentCodesScreen],
   ['/reports', ReportsScreen],
+  ['/temple-location', TempleLocationsScreen],
   ['/users-roles', UsersRolesScreen],
 ]
 

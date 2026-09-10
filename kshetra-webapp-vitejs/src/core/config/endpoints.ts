@@ -205,6 +205,18 @@ export const DEVOTEE_ENDPOINTS = {
  * Categories are the storefront's own resource, which is why they sit under
  * `/ecommerce/`: the order they are in here is the order a devotee sees.
  */
+/**
+ * Attendance geofence sites.
+ *
+ * A standard DRF ViewSet — the list is the collection path and every write
+ * targets the row, with no dedicated `new/` or `status/` sub-paths that the
+ * rest of this API tends to use. Deactivating is a `PATCH` of `is_active`.
+ */
+export const TEMPLE_LOCATION_ENDPOINTS = {
+  locations: '/admin/temple-locations/',
+  location: (id: number) => `/admin/temple-locations/${id}/`,
+} as const
+
 export const STORE_ENDPOINTS = {
   products: '/admin/store/products/',
   newProduct: '/admin/store/products/new/',
