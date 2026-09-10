@@ -13,9 +13,16 @@ export interface UserRowRole {
 export interface UserRow {
   readonly id: number
   readonly username: string
+  /**
+   * The person's name, or the username when the account has none — the server
+   * already falls back this way, so it is always safe to render.
+   */
+  readonly fullName: string
   readonly email: string
   readonly phone: string
   readonly baseRole: string
+  /** The server's display text for `baseRole`; derived locally if it sent none. */
+  readonly baseRoleLabel: string
   /** Custom roles granted on top of the base role. Often empty. */
   readonly roles: readonly UserRowRole[]
   readonly isActive: boolean
@@ -42,11 +49,16 @@ export function UsersTable({ rows, onRowClick, empty }: UsersTableProps) {
       header: 'User',
       render: (_value, row) => (
         <div className="flex items-center gap-2.75 py-0.5">
-          <Avatar name={row.username} size="sm" />
+          <Avatar name={row.fullName} size="sm" />
           <div className="flex min-w-0 flex-col gap-0.25">
-            <span className="whitespace-nowrap font-medium text-ink-strong">{row.username}</span>
+            <span className="whitespace-nowrap font-medium text-ink-strong">{row.fullName}</span>
+            {/* The username stays on screen even when a name is shown: it is the
+                sign-in identifier and what the audit trail records. Only shown
+                separately when it is not already the line above. */}
             <span className="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-ink-subtle">
-              {row.email || row.phone || '—'}
+              {row.fullName === row.username
+                ? row.email || row.phone || '—'
+                : `${row.username} · ${row.email || row.phone || '—'}`}
             </span>
           </div>
         </div>
@@ -55,7 +67,7 @@ export function UsersTable({ rows, onRowClick, empty }: UsersTableProps) {
     {
       key: 'baseRole',
       header: 'Base role',
-      render: (_value, row) => <BaseRoleBadge baseRole={row.baseRole} />,
+      render: (_value, row) => <BaseRoleBadge baseRole={row.baseRole} label={row.baseRoleLabel} />,
     },
     {
       key: 'roles',

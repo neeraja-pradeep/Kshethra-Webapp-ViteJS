@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 
+import { TEMPLE_LOCALITY, TEMPLE_NAME } from '@/core/config/app'
 import { toFailure } from '@/core/error/result'
 import { Alert, Icon, Spinner } from '@/shared/ui'
 
@@ -30,8 +31,12 @@ import { QuickActionButton } from '../components/QuickActionButton'
 import { StoreFulfilmentPanel } from '../components/StoreFulfilmentPanel'
 import { formatDashboardDateLine } from '../lib/formatDashboardDate'
 
-/** No backend field exposes these — see the dashboard API doc. */
-const TEMPLE_LOCATION = 'Sree Nagaraja Kshetram, Peramangalam'
+/**
+ * No backend field exposes this — see the dashboard API doc. Read from the
+ * shared constant so the header and the counter receipt cannot name two
+ * different temples, which is exactly what happened while both were local.
+ */
+const TEMPLE_LOCATION = `${TEMPLE_NAME}, ${TEMPLE_LOCALITY}`
 
 /**
  * Operational snapshot: pooja bookings + next-7-day forecast, store order

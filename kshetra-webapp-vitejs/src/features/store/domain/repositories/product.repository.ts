@@ -31,8 +31,15 @@ export interface ProductFilters {
   /** A category id. The dropdown sends the id. */
   readonly category?: number
   readonly status?: ProductStatus
-  /** The tile click-through. Deliberately not counted into `summary` — see `ProductPage`. */
-  readonly stockState?: StockState
+  /**
+   * The tile click-through. Deliberately not counted into `summary` — see
+   * `ProductPage`.
+   *
+   * A list is ORed by the server, which is what lets one request ask for
+   * "everything needing attention" (out-of-stock **or** low) rather than two
+   * that have to be merged and re-sorted client-side.
+   */
+  readonly stockState?: StockState | readonly StockState[]
   /** Alphabetical by name when omitted, which is how the screen opens. */
   readonly ordering?: ProductOrdering
   readonly page?: number

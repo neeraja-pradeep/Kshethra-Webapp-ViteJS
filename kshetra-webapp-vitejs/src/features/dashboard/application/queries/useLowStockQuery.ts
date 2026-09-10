@@ -11,57 +11,56 @@ import { useProductsQuery } from '@/features/store/application/queries/useProduc
  * duplicating the threshold logic in a second place is how the two screens
  * would come to disagree about what "low" means.
  *
- * Two queries because `stock_state` takes a single value: out-of-stock and
- * low-stock are separate filters server-side, and there is no combined one.
- * They are merged here rather than by asking for the whole catalogue and
- * filtering it, which would page-truncate on a shop of any size.
+ * One request: `stock_state` takes a list, ORed server-side, so out-of-stock
+ * and low-stock arrive together already sorted. Asking for the whole catalogue
+ * and filtering it here would page-truncate on a shop of any size.
  *
  * `status=active` is what keeps a delisted product off the card: a product
  * nobody can buy is not an inventory alert, however empty its shelf.
  *
  * `enabled` is the caller's `view_product` check. A dashboard viewer without it
- * would otherwise 403 twice on a screen they are allowed to see.
+ * would otherwise 403 on a screen they are allowed to see.
  */
 
 /** Enough rows to fill the card and still count the "+N more" behind it. */
 const LOW_STOCK_FETCH_SIZE = 50
-/** Most urgent first — the server sorts ascending on the stock quantity. */
+/**
+ * Most urgent first — the server sorts ascending on the stock quantity, and
+ * out-of-stock is zero, so the emptiest shelves lead without a second sort.
+ */
 const STOCK_ASCENDING = 'stock'
+/** Both states the card reports on, ORed by the server into one page. */
+const NEEDS_ATTENTION = ['out_of_stock', 'low_stock'] as const
 
 export function useLowStockQuery(enabled: boolean) {
-  const outOfStockQuery = useProductsQuery({
-    stockState: 'out_of_stock',
-    status: 'active',
-    ordering: STOCK_ASCENDING,
-    pageSize: LOW_STOCK_FETCH_SIZE,
-  }, enabled)
-
-  const lowStockQuery = useProductsQuery({
-    stockState: 'low_stock',
-    status: 'active',
-    ordering: STOCK_ASCENDING,
-    pageSize: LOW_STOCK_FETCH_SIZE,
-  }, enabled)
+  const query = useProductsQuery(
+    {
+      stockState: NEEDS_ATTENTION,
+      status: 'active',
+      ordering: STOCK_ASCENDING,
+      pageSize: LOW_STOCK_FETCH_SIZE,
+    },
+    enabled,
+  )
 
   /**
-   * Out-of-stock first, then low-stock — both already stock-ascending, so
-   * concatenating preserves urgency order without a second sort. A product with
-   * no variant has no SKU; it is dropped rather than keyed on an empty string,
-   * which would collide with every other variant-less product in the list.
+   * A product with no variant has no SKU; it is dropped rather than keyed on an
+   * empty string, which would collide with every other variant-less product.
    */
-  const items = useMemo<LowStockItem[]>(() => {
-    const rows = [...(outOfStockQuery.data?.results ?? []), ...(lowStockQuery.data?.results ?? [])]
-    return rows.flatMap((row) =>
-      row.sku === null ? [] : [{ sku: row.sku, name: row.name, stock: row.stockQuantity }],
-    )
-  }, [outOfStockQuery.data, lowStockQuery.data])
+  const items = useMemo<LowStockItem[]>(
+    () =>
+      (query.data?.results ?? []).flatMap((row) =>
+        row.sku === null ? [] : [{ sku: row.sku, name: row.name, stock: row.stockQuantity }],
+      ),
+    [query.data],
+  )
 
   return {
     items,
-    /** The unfiltered totals, so "+N more" counts what the card did not draw. */
-    total: (outOfStockQuery.data?.count ?? 0) + (lowStockQuery.data?.count ?? 0),
-    isPending: enabled && (outOfStockQuery.isPending || lowStockQuery.isPending),
-    isError: outOfStockQuery.isError || lowStockQuery.isError,
-    error: outOfStockQuery.error ?? lowStockQuery.error,
+    /** The unfiltered total, so "+N more" counts what the card did not draw. */
+    total: query.data?.count ?? 0,
+    isPending: enabled && query.isPending,
+    isError: query.isError,
+    error: query.error,
   }
 }

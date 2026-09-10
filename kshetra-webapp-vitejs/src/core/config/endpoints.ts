@@ -136,6 +136,38 @@ export const ADMIN_ORDER_ENDPOINTS = {
 } as const
 
 /**
+ * App > Media — the audio the devotee app plays.
+ *
+ * `status` and `homeScreen` are separate one-field toggles so a switch on a
+ * list row cannot post a stale copy of every other field back with it. They
+ * answer different questions: `status` is "is it in the app at all",
+ * `homeScreen` is "does it lead the home screen" — a track can legally be both
+ * featured and inactive.
+ */
+export const MEDIA_ENDPOINTS = {
+  tracks: '/admin/media/',
+  newTrack: '/admin/media/new/',
+  track: (id: number) => `/admin/media/${id}/`,
+  trackStatus: (id: number) => `/admin/media/${id}/status/`,
+  trackHomeScreen: (id: number) => `/admin/media/${id}/home-screen/`,
+} as const
+
+/**
+ * Reports — 12 reports on three endpoints, distinguished only by `<slug>`.
+ *
+ * Everything the screen draws (columns, filters, their dropdown options, each
+ * card's icon, the period presets and the page-size cap) comes from the
+ * catalogue, so a report added server-side needs no frontend release.
+ */
+export const REPORT_ENDPOINTS = {
+  catalogue: '/report/catalogue/',
+  rows: (slug: string) => `/report/${slug}/`,
+  export: (slug: string) => `/report/${slug}/export/`,
+  /** A filter's dropdown contents, for the filters that name an `options_source`. */
+  options: (source: string) => `/report/options/${source}/`,
+} as const
+
+/**
  * Agent codes — the codes a devotee applies in the app so a booking becomes
  * payable at the temple counter instead of online.
  *

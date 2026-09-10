@@ -1,306 +1,304 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { Spinner } from '@/shared/ui'
+import { toFailure } from '@/core/error/result'
+import { Alert, Icon, Spinner } from '@/shared/ui'
 import { formatCount } from '@/shared/lib/format'
 
+import { PERMISSIONS } from '@/features/auth/application/hooks/permissions'
+import { useCan } from '@/features/auth/application/hooks/useCan'
+import {
+  useReportCatalogueQuery,
+  useReportExportMutation,
+  useReportQuery,
+} from '@/features/reports/application/queries/useReportQueries'
+import type { ReportExportFormat, ReportQuery } from '@/features/reports/domain/entities/report'
 import { ReportCatalogue } from '@/features/reports/presentation/components/ReportCatalogue'
 import { ReportEmptyState } from '@/features/reports/presentation/components/ReportEmptyState'
 import { ReportExportPanel } from '@/features/reports/presentation/components/ReportExportPanel'
 import { ReportFilterBar } from '@/features/reports/presentation/components/ReportFilterBar'
 import { ReportPagination } from '@/features/reports/presentation/components/ReportPagination'
-import { ReportPendingBanner } from '@/features/reports/presentation/components/ReportPendingBanner'
 import { ReportResultsTable } from '@/features/reports/presentation/components/ReportResultsTable'
 import { ReportToast } from '@/features/reports/presentation/components/ReportToast'
-import { REPORT_CATEGORIES, REPORTS } from '@/features/reports/presentation/data/reports-catalogue.mock'
-import { REPORT_ROWS } from '@/features/reports/presentation/data/report-rows.mock'
+import { useReportOptions } from '@/features/reports/presentation/lib/useReportOptions'
+import { nextSort } from '@/features/reports/presentation/lib/reportCells'
 
-import type { DateRangePreset, ReportDefinition, ReportFilterState, ReportGroup, ReportId, ReportRow } from '@/features/reports/domain/entities/report'
+const TOAST_MS = 2600
+/** One request per pause in typing, not per keystroke. */
+const SEARCH_DEBOUNCE_MS = 300
+const CUSTOM_PERIOD = 'custom'
 
-/** Fixed "today" the mock dataset is anchored to — the seed data runs up to this date. */
-const TODAY_ISO = '2026-07-15'
-const DEFAULT_MONTH_START = '2026-07-01'
-const YEAR_START = '2026-01-01'
-const PAGE_SIZE = 15
-
-const DATASETS: Record<ReportId, readonly ReportRow[]> = REPORT_ROWS as unknown as Record<ReportId, readonly ReportRow[]>
-
-function addDays(iso: string, days: number): string {
-  const [year, month, day] = iso.split('-').map(Number)
-  const date = new Date(year, month - 1, day)
-  date.setDate(date.getDate() + days)
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
-
-function rangeFor(preset: DateRangePreset, from: string, to: string): readonly [string, string] {
-  if (preset === 'Today') return [TODAY_ISO, TODAY_ISO]
-  if (preset === 'This week') return [addDays(TODAY_ISO, -6), TODAY_ISO]
-  if (preset === 'This month') return [DEFAULT_MONTH_START, TODAY_ISO]
-  if (preset === 'This quarter') return [DEFAULT_MONTH_START, TODAY_ISO]
-  if (preset === 'This year') return [YEAR_START, TODAY_ISO]
-  return [from, to]
-}
-
-function buildDefaultFilters(report: ReportDefinition): ReportFilterState {
-  const extra: Record<string, string> = {}
-  report.filters.forEach((filter) => {
-    extra[filter.key] = 'all'
-  })
-  return { preset: 'This month', from: DEFAULT_MONTH_START, to: TODAY_ISO, extra }
-}
-
-type FieldValue = string | number | null
-
-function readField(row: ReportRow, key: string): FieldValue {
-  const record = row as unknown as Record<string, string | number | null | undefined>
-  const value = record[key]
-  return value == null ? null : value
-}
-
-function applyFilters(report: ReportDefinition, rows: readonly ReportRow[], filters: ReportFilterState): ReportRow[] {
-  let result = rows.slice()
-
-  if (!report.noDate) {
-    const [from, to] = rangeFor(filters.preset, filters.from, filters.to)
-    result = result.filter((row) => {
-      const date = readField(row, 'date')
-      return date == null || (String(date) >= from && String(date) <= to)
-    })
-  }
-
-  report.filters.forEach((filterDef) => {
-    const value = filters.extra[filterDef.key]
-    if (!value || value === 'all') return
-    if (report.id === 'volume' && filterDef.key === 'status') {
-      result = result.filter((row) => (value === 'Completed' ? Number(readField(row, 'completed')) > 0 : Number(readField(row, 'cancelled')) > 0))
-      return
-    }
-    if (report.id === 'inventory' && filterDef.key === 'low') {
-      result = result.filter((row) => readField(row, 'flag') !== 'In stock')
-      return
-    }
-    result = result.filter((row) => String(readField(row, filterDef.key)) === value)
-  })
-
-  return result
-}
-
-function sortRows(rows: readonly ReportRow[], sortKey: string, sortDir: 'asc' | 'desc'): ReportRow[] {
-  const result = rows.slice()
-  if (sortKey) {
-    const dir = sortDir === 'asc' ? 1 : -1
-    result.sort((a, b) => {
-      const av = readField(a, sortKey)
-      const bv = readField(b, sortKey)
-      if (av == null) return 1
-      if (bv == null) return -1
-      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir
-      return String(av).localeCompare(String(bv)) * dir
-    })
-    return result
-  }
-  if (result.length > 0 && readField(result[0], 'date') != null) {
-    result.sort((a, b) => String(readField(b, 'date') ?? '').localeCompare(String(readField(a, 'date') ?? '')))
-  }
-  return result
-}
-
-/** Reports — pick a report, set the filters, and export the result set. */
+/**
+ * Reports. Route: `/reports`.
+ *
+ * Every report is served by the same three endpoints, and **nothing about any
+ * of them is hardcoded here** — the cards, their icons, each report's columns,
+ * its filters, those filters' dropdown contents, the period presets and the
+ * page-size cap all arrive from `report/catalogue/`. A report added
+ * server-side appears with no frontend release.
+ *
+ * All filtering, sorting and paging is the server's. Nothing is done locally:
+ * the list is paged, so narrowing the loaded rows would report one page's
+ * matches as though it were the whole set, and `totals` is counted over
+ * everything the filters match rather than over what is on screen.
+ */
 export function ReportsScreen() {
-  const [view, setView] = useState<ReportId>('income')
-  const [filters, setFilters] = useState<ReportFilterState>(() => buildDefaultFilters(REPORTS[0]))
-  const [sortKey, setSortKey] = useState('')
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
-  const [page, setPage] = useState(0)
-  const [loading, setLoading] = useState(false)
-  const [exporting, setExporting] = useState(false)
-  const [toast, setToast] = useState('')
+  const can = useCan()
+  const canExport = can(PERMISSIONS.exportReports)
 
-  const loadingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const catalogueQuery = useReportCatalogueQuery()
+  const catalogue = catalogueQuery.data ?? null
+
+  const [slug, setSlug] = useState<string | null>(null)
+  const [period, setPeriod] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [filterValues, setFilterValues] = useState<Record<string, string>>({})
+  const [debouncedFilters, setDebouncedFilters] = useState<Record<string, string>>({})
+  const [sort, setSort] = useState('')
+  const [page, setPage] = useState(1)
+  const [toast, setToast] = useState<string | null>(null)
+
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const definition = useMemo(
+    () => catalogue?.reports.find((r) => r.slug === slug) ?? null,
+    [catalogue, slug],
+  )
+
+  /** The first report the caller may actually run opens by default. */
+  useEffect(() => {
+    if (slug !== null || !catalogue) return
+    const first = catalogue.reports.find((r) => r.permitted) ?? catalogue.reports[0]
+    if (first) selectReport(first.slug)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalogue, slug])
+
+  /** A search filter fires one request per pause, not per keystroke. */
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedFilters(filterValues), SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(id)
+  }, [filterValues])
 
   useEffect(
     () => () => {
-      if (loadingTimer.current) clearTimeout(loadingTimer.current)
       if (toastTimer.current) clearTimeout(toastTimer.current)
     },
     [],
   )
 
-  const report = useMemo<ReportDefinition>(() => REPORTS.find((r) => r.id === view) ?? REPORTS[0], [view])
-
-  const pulse = () => {
-    setLoading(true)
-    if (loadingTimer.current) clearTimeout(loadingTimer.current)
-    loadingTimer.current = setTimeout(() => setLoading(false), 380)
-  }
-
-  const showToast = (message: string) => {
+  function showToast(message: string) {
     setToast(message)
     if (toastTimer.current) clearTimeout(toastTimer.current)
-    toastTimer.current = setTimeout(() => setToast(''), 2400)
+    toastTimer.current = setTimeout(() => setToast(null), TOAST_MS)
   }
 
-  const handleSelectReport = (id: ReportId) => {
-    const next = REPORTS.find((r) => r.id === id)
-    if (!next) return
-    setView(id)
-    setFilters(buildDefaultFilters(next))
-    setSortKey('')
-    setSortDir('desc')
-    setPage(0)
-    pulse()
+  /**
+   * Opening a report resets to **its own** defaults — the server states each
+   * report's default period and sort, and carrying the last report's over would
+   * ask a question this one was never meant to answer.
+   */
+  function selectReport(nextSlug: string) {
+    const next = catalogue?.reports.find((r) => r.slug === nextSlug) ?? null
+    setSlug(nextSlug)
+    setPeriod(next?.defaultPeriod ?? '')
+    setSort(next?.defaultSort ?? '')
+    setDateFrom('')
+    setDateTo('')
+    const seeded = Object.fromEntries(
+      (next?.filters ?? [])
+        .filter((f) => f.type !== 'date_range' && f.defaultValue)
+        .map((f) => [f.key, f.defaultValue as string]),
+    )
+    setFilterValues(seeded)
+    setDebouncedFilters(seeded)
+    setPage(1)
   }
 
-  const handleReset = () => {
-    setFilters(buildDefaultFilters(report))
-    setPage(0)
-    pulse()
-  }
-
-  const handleSort = (key: string) => {
-    const nextDir = sortKey === key && sortDir === 'desc' ? 'asc' : 'desc'
-    setSortKey(key)
-    setSortDir(nextDir)
-    setPage(0)
-    pulse()
-  }
-
-  const groups: ReportGroup[] = useMemo(
-    () =>
-      REPORT_CATEGORIES.map((category) => ({
-        category,
-        reports: REPORTS.filter((r) => r.category === category),
-      })).filter((group) => group.reports.length > 0),
-    [],
+  const query: ReportQuery = useMemo(
+    () => ({
+      ...(period ? { period } : {}),
+      ...(period === CUSTOM_PERIOD && dateFrom ? { dateFrom } : {}),
+      ...(period === CUSTOM_PERIOD && dateTo ? { dateTo } : {}),
+      ...(sort ? { sort } : {}),
+      page,
+      pageSize: catalogue?.defaultPageSize,
+      filters: debouncedFilters,
+    }),
+    [period, dateFrom, dateTo, sort, page, catalogue, debouncedFilters],
   )
 
-  const filteredRows = useMemo(() => applyFilters(report, DATASETS[report.id], filters), [report, filters])
-  const sortedRows = useMemo(() => sortRows(filteredRows, sortKey, sortDir), [filteredRows, sortKey, sortDir])
+  const reportQuery = useReportQuery(slug, query)
+  const exportMutation = useReportExportMutation()
+  const fetchedOptions = useReportOptions(definition?.filters ?? [])
 
-  const pageCount = Math.max(1, Math.ceil(sortedRows.length / PAGE_SIZE))
-  const currentPage = Math.min(page, pageCount - 1)
-  const pageRows = sortedRows.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE)
+  const result = reportQuery.data ?? null
+  const columns = result?.report.columns ?? definition?.columns ?? []
+  const rows = result?.rows ?? []
+  const totalRows = result?.count ?? 0
 
-  const totals = useMemo(() => {
-    if (report.totals.length === 0 || filteredRows.length === 0) return undefined
-    const sums: Record<string, number> = {}
-    report.totals.forEach((key) => {
-      sums[key] = filteredRows.reduce((sum, row) => sum + (Number(readField(row, key)) || 0), 0)
-    })
-    return sums
-  }, [report, filteredRows])
+  function handleFilterChange(key: string, value: string) {
+    setFilterValues((prev) => ({ ...prev, [key]: value }))
+    setPage(1)
+  }
 
-  const resultLabel = `${formatCount(filteredRows.length)} ${filteredRows.length === 1 ? 'row' : 'rows'}`
-  const showTable = !loading && filteredRows.length > 0
-  const showEmpty = !loading && filteredRows.length === 0
-  const emptyIcon = report.flagged ? 'plugs' : 'magnifying-glass'
-  const emptyMessage = report.flagged
-    ? 'No data yet — this report is pending its data source. The filters above show the intended shape.'
-    : 'No rows match the current filters. Adjust the date range or filters.'
+  function handleReset() {
+    if (slug) selectReport(slug)
+  }
 
-  const pageInfo =
-    sortedRows.length > 0
-      ? `Showing ${currentPage * PAGE_SIZE + 1}–${Math.min(sortedRows.length, (currentPage + 1) * PAGE_SIZE)} of ${formatCount(sortedRows.length)} rows`
-      : ''
-  const pageLabel = `Page ${currentPage + 1} of ${pageCount}`
+  function handleSort(key: string) {
+    setSort((current) => nextSort(current, key))
+    setPage(1)
+  }
 
-  const handleExport = (kind: 'csv' | 'xls') => {
-    const rows = sortedRows
-    setExporting(true)
-    window.setTimeout(() => {
-      const head = report.columns.map((c) => c.label)
-      const body = rows.map((row) =>
-        report.columns.map((c) => {
-          const value = readField(row, c.key)
-          return value == null ? '' : String(value)
-        }),
-      )
-      let blob: Blob
-      let ext: string
-      if (kind === 'csv') {
-        const esc = (s: string) => `"${s.replace(/"/g, '""')}"`
-        const csv = [head.map(esc).join(','), ...body.map((r) => r.map(esc).join(','))].join('\n')
-        blob = new Blob([csv], { type: 'text/csv' })
-        ext = 'csv'
-      } else {
-        const tr = (cells: readonly string[], tag: string) =>
-          `<tr>${cells.map((c) => `<${tag}>${c.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</${tag}>`).join('')}</tr>`
-        const html = `<table>${tr(head, 'th')}${body.map((r) => tr(r, 'td')).join('')}</table>`
-        blob = new Blob([html], { type: 'application/vnd.ms-excel' })
-        ext = 'xls'
-      }
-      const anchor = document.createElement('a')
-      anchor.href = URL.createObjectURL(blob)
-      anchor.download = `${report.name.replace(/\s+/g, '-').toLowerCase()}.${ext}`
-      document.body.appendChild(anchor)
-      anchor.click()
-      anchor.remove()
-      window.setTimeout(() => URL.revokeObjectURL(anchor.href), 4000)
-      setExporting(false)
-      showToast(`Exported ${formatCount(rows.length)} rows (${ext.toUpperCase()})`)
-    }, 700)
+  /**
+   * Saves the file the server built, under the name the server gave it — the
+   * filename carries a timestamp, so naming it here would lose that.
+   */
+  function handleExport(format: ReportExportFormat) {
+    if (!slug) return
+    exportMutation.mutate(
+      { slug, format, query },
+      {
+        onSuccess: (file) => {
+          const url = URL.createObjectURL(file.blob)
+          const anchor = document.createElement('a')
+          anchor.href = url
+          anchor.download = file.filename
+          document.body.appendChild(anchor)
+          anchor.click()
+          anchor.remove()
+          window.setTimeout(() => URL.revokeObjectURL(url), 4000)
+          showToast(`Exported ${formatCount(totalRows)} rows (${format.toUpperCase()})`)
+        },
+      },
+    )
+  }
+
+  const catalogueFailure = catalogueQuery.isError
+    ? (toFailure(catalogueQuery.error)?.message ?? 'The report catalogue could not be loaded.')
+    : null
+  const rowsFailure = reportQuery.isError
+    ? (toFailure(reportQuery.error)?.message ?? 'This report could not be run.')
+    : null
+  const exportFailure = exportMutation.isError
+    ? (toFailure(exportMutation.error)?.message ?? 'The export could not be prepared.')
+    : null
+
+  const pageCount = result?.totalPages ?? 1
+  const firstRow = totalRows === 0 ? 0 : (page - 1) * (result?.pageSize ?? 1) + 1
+  const lastRow = Math.min(totalRows, page * (result?.pageSize ?? 0))
+  const pageInfo = totalRows ? `Showing ${firstRow}–${lastRow} of ${formatCount(totalRows)} rows` : 'No rows'
+  const pageLabel = `Page ${page} of ${pageCount}`
+
+  const showTable = !!result && rows.length > 0
+  const showEmpty = !!result && rows.length === 0 && !rowsFailure
+
+  if (catalogueQuery.isPending) {
+    return (
+      <div className="flex h-full items-center justify-center bg-sunken">
+        <Spinner size={40} />
+      </div>
+    )
+  }
+
+  if (catalogueFailure || !catalogue) {
+    return (
+      <div className="flex h-full flex-col gap-4 bg-sunken px-7 pt-5.5">
+        <Alert type="danger" icon={<Icon name="warning" size={16} />}>
+          {catalogueFailure ?? 'The report catalogue could not be loaded.'}
+        </Alert>
+      </div>
+    )
   }
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-sunken">
-      <div className="flex shrink-0 items-center gap-4 px-7 pt-5.5 pb-3">
+      <div className="flex shrink-0 items-center gap-4 px-7 pb-3 pt-5.5">
         <div className="min-w-0 flex-1">
           <h1 className="m-0 text-3xl font-heading leading-tight tracking-title text-ink-strong">Reports</h1>
           <p className="mt-1.5 text-sm text-ink-muted">Pick a report, set the filters, and export the result set.</p>
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-7 pt-0.5 pb-6">
-        <ReportCatalogue groups={groups} selectedId={view} onSelect={handleSelectReport} />
-
-        <ReportFilterBar
-          hasDate={!report.noDate}
-          filters={filters}
-          extraFilters={report.filters}
-          onPresetChange={(preset) => setFilters((prev) => ({ ...prev, preset }))}
-          onFromChange={(from) => setFilters((prev) => ({ ...prev, from }))}
-          onToChange={(to) => setFilters((prev) => ({ ...prev, to }))}
-          onExtraChange={(key, value) => setFilters((prev) => ({ ...prev, extra: { ...prev.extra, [key]: value } }))}
-          onReset={handleReset}
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-7 pb-6 pt-0.5">
+        <ReportCatalogue
+          groups={catalogue.groups}
+          reports={catalogue.reports}
+          selectedSlug={slug}
+          onSelect={selectReport}
         />
 
-        {report.flagged && report.pendingNote && <ReportPendingBanner note={report.pendingNote} />}
+        {definition && (
+          <ReportFilterBar
+            filters={definition.filters}
+            periods={catalogue.periods}
+            hasPeriod={definition.hasPeriod}
+            periodField={definition.periodField}
+            period={period}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            values={filterValues}
+            fetchedOptions={fetchedOptions}
+            onPeriodChange={(value) => {
+              setPeriod(value)
+              setPage(1)
+            }}
+            onDateFromChange={(value) => {
+              setDateFrom(value)
+              setPage(1)
+            }}
+            onDateToChange={(value) => {
+              setDateTo(value)
+              setPage(1)
+            }}
+            onFilterChange={handleFilterChange}
+            onReset={handleReset}
+          />
+        )}
+
+        {(rowsFailure || exportFailure) && (
+          <Alert type="danger" icon={<Icon name="warning" size={16} />}>
+            {rowsFailure ?? exportFailure}
+          </Alert>
+        )}
 
         <div className="flex min-h-80 shrink-0 flex-col gap-3.5">
-          {loading && (
+          {reportQuery.isPending && slug !== null && (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-2xl bg-card py-16 text-ink-subtle shadow-sm">
               <Spinner size={28} />
               <span className="text-sm">Running report…</span>
             </div>
           )}
 
-          {showTable && (
+          {showTable && result && definition && (
             <>
               <ReportExportPanel
-                reportName={report.name}
-                resultLabel={resultLabel}
-                exportBusy={exporting}
+                reportName={result.report.label}
+                resultLabel={formatCount(totalRows)}
+                exportBusy={exportMutation.isPending}
+                formats={definition.exports}
+                canExport={canExport}
                 onExportCsv={() => handleExport('csv')}
-                onExportXls={() => handleExport('xls')}
+                onExportXls={() => handleExport('xlsx')}
               />
               <div className="overflow-hidden rounded-2xl bg-card shadow-sm">
                 <ReportResultsTable
-                  columns={report.columns}
-                  rows={pageRows}
-                  sortKey={sortKey}
-                  sortDir={sortDir}
+                  columns={columns}
+                  rows={rows}
+                  sort={result.sort}
                   onSort={handleSort}
-                  totals={totals}
-                  totalRowCount={filteredRows.length}
+                  totals={result.totals}
+                  totalRowCount={totalRows}
+                  loading={reportQuery.isFetching}
                 />
               </div>
               <ReportPagination
                 pageInfo={pageInfo}
                 pageLabel={pageLabel}
-                prevDisabled={currentPage <= 0}
-                nextDisabled={currentPage >= pageCount - 1}
-                onPrev={() => setPage((p) => Math.max(0, p - 1))}
-                onNext={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                prevDisabled={!result.hasPrevious}
+                nextDisabled={!result.hasNext}
+                onPrev={() => setPage((p) => Math.max(1, p - 1))}
+                onNext={() => setPage((p) => p + 1)}
               />
             </>
           )}
@@ -308,9 +306,9 @@ export function ReportsScreen() {
           {showEmpty && (
             <div className="rounded-2xl bg-card shadow-sm">
               <ReportEmptyState
-                icon={emptyIcon}
-                message={emptyMessage}
-                showClearFilters={!report.flagged}
+                icon="magnifying-glass"
+                message="No rows match the current filters."
+                showClearFilters
                 onClearFilters={handleReset}
               />
             </div>

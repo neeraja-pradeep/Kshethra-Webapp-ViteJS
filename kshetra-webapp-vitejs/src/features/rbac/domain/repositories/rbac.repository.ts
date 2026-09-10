@@ -83,16 +83,8 @@ export interface RbacRepository {
    * callers must not fire it for an arbitrary user.
    */
   fetchPoojariGods(userId: number): Promise<Result<PoojariGods>>
-  /**
-   * Replaces the whole list; `[]` clears it and returns the poojari to unscoped.
-   * `poojariName` is carried through because the write's response does not name
-   * them — pass what the caller already displays.
-   */
-  setPoojariGods(
-    userId: number,
-    godIds: readonly number[],
-    poojariName?: string,
-  ): Promise<Result<PoojariGods>>
+  /** Replaces the whole list; `[]` clears it and returns the poojari to unscoped. */
+  setPoojariGods(userId: number, godIds: readonly number[]): Promise<Result<PoojariGods>>
   /** Every god the picker may offer — the whole pooja-category catalogue. */
   fetchGodOptions(): Promise<Result<readonly PoojariGodOption[]>>
   createStaffUser(input: CreateStaffUserInput): Promise<Result<RbacUserDetail>>

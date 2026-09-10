@@ -1,216 +1,167 @@
-/** Report catalogue grouping shown as the section overline above the cards. */
-export type ReportCategory = 'Financial' | 'Operational' | 'Staff' | 'Inventory' | 'Expense'
+/**
+ * Domain types for Reports. Plain data — no logic, no React.
+ *
+ * There is **one** row type, not one per report. Every report answers on the
+ * same three endpoints with the same envelope, and what a row contains is
+ * described by `columns[]` rather than by a TypeScript interface — which is
+ * what lets a report added server-side render with no frontend release.
+ */
 
-/** Identifies a report definition + its dataset key in the mock store. */
-export type ReportId =
-  | 'income'
-  | 'refunds'
-  | 'counter'
-  | 'agent'
-  | 'temple'
-  | 'monthly'
-  | 'volume'
-  | 'cancellations'
-  | 'attendance'
-  | 'incentive'
-  | 'inventory'
-  | 'expense'
+/** Drives how a cell is rendered and aligned. */
+export type ReportColumnType =
+  | 'text'
+  | 'number'
+  | 'money'
+  | 'date'
+  | 'datetime'
+  | 'boolean'
+  | 'status'
+  | 'list'
 
-/** Quick date-range chooser above the results panel. */
-export type DateRangePreset = 'Today' | 'This week' | 'This month' | 'This quarter' | 'This year' | 'Custom range'
+export type ReportColumnAlign = 'left' | 'center' | 'right'
 
-/** A single extra filter offered by a report (beyond the shared date range). */
-export interface ReportFilterDef {
-  readonly key: string
-  readonly label: string
-  readonly options: readonly string[]
-}
-
-/** A result-table column definition for a report. */
 export interface ReportColumn {
   readonly key: string
   readonly label: string
-  readonly money?: boolean
-  readonly num?: boolean
-  readonly delta?: boolean
+  readonly type: ReportColumnType
+  readonly align: ReportColumnAlign
+  /** `list` columns are the one kind that cannot sort — there is no single value. */
+  readonly sortable: boolean
+  /** Whether `totals` carries a figure for this column. */
+  readonly total: boolean
+  readonly helpText: string | null
 }
 
-/** One entry in the report catalogue (rendered as a card). */
+/** How a filter is drawn. `date_range` is the shared period control. */
+export type ReportFilterType = 'select' | 'search' | 'boolean' | 'date_range'
+
+export interface ReportFilterOption {
+  readonly value: string
+  readonly label: string
+}
+
+export interface ReportFilter {
+  readonly key: string
+  readonly label: string
+  readonly type: ReportFilterType
+  readonly placeholder: string | null
+  readonly defaultValue: string | null
+  readonly helpText: string | null
+  /** Embedded for short fixed lists; empty when `optionsSource` names a lookup. */
+  readonly options: readonly ReportFilterOption[]
+  /** Fetch from `report/options/<source>/` — use `search` for a type-ahead. */
+  readonly optionsSource: string | null
+  /** The embedded list was cut short; the full set needs the lookup. */
+  readonly truncated: boolean
+}
+
+export type ReportExportFormat = 'csv' | 'xlsx'
+
+/** One report's metadata — everything its card and its screen need. */
 export interface ReportDefinition {
-  readonly id: ReportId
-  readonly category: ReportCategory
+  readonly slug: string
+  readonly label: string
+  readonly description: string
+  readonly group: string
+  readonly groupLabel: string
+  /** A Lucide icon name, served rather than hardcoded. */
   readonly icon: string
-  readonly name: string
-  readonly description: string
-  readonly flagged?: boolean
-  readonly pendingNote?: string
-  readonly noDate?: boolean
-  readonly filters: readonly ReportFilterDef[]
+  /**
+   * Whether the caller may run it. The catalogue never lists a report that
+   * would 403, so this is for greying a card rather than gating the request.
+   */
+  readonly permitted: boolean
+  readonly hasPeriod: boolean
+  /** Which date the period narrows — show it, so an admin knows what the window is *of*. */
+  readonly periodField: string | null
+  readonly defaultPeriod: string
+  readonly defaultSort: string
   readonly columns: readonly ReportColumn[]
-  readonly totals: readonly string[]
+  readonly filters: readonly ReportFilter[]
+  readonly exports: readonly ReportExportFormat[]
 }
 
-/** A named group of report cards (rendered as one catalogue section). */
+/** One catalogue section — slugs in render order, looked up in `reports`. */
 export interface ReportGroup {
-  readonly category: ReportCategory
+  readonly key: string
+  readonly label: string
+  readonly reportSlugs: readonly string[]
+}
+
+export interface ReportPeriodPreset {
+  readonly value: string
+  readonly label: string
+}
+
+export interface ReportCatalogue {
+  readonly groups: readonly ReportGroup[]
   readonly reports: readonly ReportDefinition[]
+  readonly periods: readonly ReportPeriodPreset[]
+  readonly defaultPageSize: number
+  readonly maxPageSize: number
+  readonly exportFormats: readonly ReportExportFormat[]
 }
 
-/** Applied/draft filter state shared by every report. */
-export interface ReportFilterState {
-  readonly preset: DateRangePreset
-  readonly from: string
-  readonly to: string
-  readonly extra: Readonly<Record<string, string>>
+/**
+ * One row, keyed by column key.
+ *
+ * Values arrive as whatever the column's type implies — a `money` column is a
+ * **string** so no decimal is lost to a float in transit, a `list` column an
+ * array. Read them through the column definition, never by assuming a shape.
+ */
+export type ReportRow = Readonly<Record<string, unknown>>
+
+/** The window that was actually resolved, echoed back by the server. */
+export interface ReportPeriod {
+  readonly period: string
+  readonly dateFrom: string | null
+  readonly dateTo: string | null
 }
 
-// ── Row shapes, one per report dataset ─────────────────────────────────────
-
-export interface IncomeRow {
-  readonly id: string
-  readonly date: string
-  readonly source: string
-  readonly mode: string
-  readonly gross: number
-  readonly refunds: number
-  readonly net: number
-}
-
-export interface RefundRow {
-  readonly id: string
-  readonly ref: string
-  readonly order: string
-  readonly type: string
-  readonly source: string
-  readonly amount: number
-  readonly reason: string
-  readonly user: string
-  readonly date: string
-}
-
-export interface CounterRow {
-  readonly id: string
-  readonly date: string
-  readonly staff: string
-  readonly mode: string
-  readonly amount: number
-  readonly count: number
-}
-
-export interface AgentRow {
-  readonly id: string
-  readonly code: string
-  readonly uses: number
-  readonly value: number
-  readonly discount: number
-}
-
-export interface MonthlyPrev {
-  readonly poojas: number
-  readonly orders: number
-  readonly revenue: number
-  readonly net: number
-}
-
-export interface MonthlyRow {
-  readonly id: string
-  readonly month: string
-  readonly poojas: number
-  readonly orders: number
-  readonly revenue: number
-  readonly refunds: number
-  readonly net: number
-  readonly prev: MonthlyPrev | null
-}
-
-export interface VolumeRow {
-  readonly id: string
-  readonly pooja: string
-  readonly god: string
-  readonly booked: number
-  readonly completed: number
-  readonly cancelled: number
-  readonly revenue: number
-}
-
-export interface CancellationRow {
-  readonly id: string
-  readonly ref: string
-  readonly date: string
-  readonly source: string
-  readonly reason: string
-  readonly amount: number
-  readonly user: string
-}
-
-export type StockFlag = 'In stock' | 'Low stock' | 'Out of stock'
-
-export interface InventoryRow {
-  readonly id: string
-  readonly product: string
-  readonly category: string
-  readonly stock: number
-  readonly adjustments: number
-  readonly flag: StockFlag
-}
-
-export interface TempleRow {
-  readonly id: string
-  readonly temple: string
-  readonly gross: number
-  readonly refunds: number
-  readonly net: number
-}
-
-export interface AttendanceRow {
-  readonly id: string
-  readonly poojari: string
-  readonly days: number
-  readonly completed: number
-}
-
-export interface IncentiveRow {
-  readonly id: string
-  readonly poojari: string
-  readonly completed: number
-  readonly incentive: number
-}
-
-export interface ExpenseRow {
-  readonly id: string
-  readonly date: string
-  readonly category: string
+/**
+ * What the rows endpoint echoes back about the report itself — a trimmed
+ * block, not the full catalogue entry. `columns` is what the table renders
+ * from; everything else about the report comes from the catalogue.
+ */
+export interface ReportResultReport {
+  readonly slug: string
+  readonly label: string
   readonly description: string
-  readonly amount: number
+  readonly columns: readonly ReportColumn[]
 }
 
-/** Union of every possible result row across all reports. */
-export type ReportRow =
-  | IncomeRow
-  | RefundRow
-  | CounterRow
-  | AgentRow
-  | MonthlyRow
-  | VolumeRow
-  | CancellationRow
-  | InventoryRow
-  | TempleRow
-  | AttendanceRow
-  | IncentiveRow
-  | ExpenseRow
+/**
+ * A page of a report, plus everything about how it was answered.
+ *
+ * `totals` is over the **whole filtered set, never the page**, and carries
+ * `rows` on every report alongside a figure per `total: true` column.
+ */
+export interface ReportResult {
+  readonly report: ReportResultReport
+  /** Rows matching the filters — the whole set, not this page. */
+  readonly count: number
+  readonly page: number
+  readonly pageSize: number
+  readonly totalPages: number
+  readonly hasNext: boolean
+  readonly hasPrevious: boolean
+  readonly period: ReportPeriod
+  /** The sort actually applied, `-` prefixed for descending. */
+  readonly sort: string
+  /** Only the filters that were honoured. */
+  readonly filtersApplied: Readonly<Record<string, unknown>>
+  readonly rows: readonly ReportRow[]
+  readonly totals: Readonly<Record<string, unknown>>
+}
 
-/** The full mock dataset store, keyed by report id. */
-export interface ReportDataset {
-  readonly income: readonly IncomeRow[]
-  readonly refunds: readonly RefundRow[]
-  readonly counter: readonly CounterRow[]
-  readonly agent: readonly AgentRow[]
-  readonly monthly: readonly MonthlyRow[]
-  readonly volume: readonly VolumeRow[]
-  readonly cancellations: readonly CancellationRow[]
-  readonly inventory: readonly InventoryRow[]
-  readonly temple: readonly TempleRow[]
-  readonly attendance: readonly AttendanceRow[]
-  readonly incentive: readonly IncentiveRow[]
-  readonly expense: readonly ExpenseRow[]
+/** What the screen sends when asking for a page. */
+export interface ReportQuery {
+  readonly period?: string
+  readonly dateFrom?: string
+  readonly dateTo?: string
+  readonly sort?: string
+  readonly page?: number
+  readonly pageSize?: number
+  /** The report's own filters, keyed as the catalogue names them. */
+  readonly filters?: Readonly<Record<string, string>>
 }

@@ -25,7 +25,11 @@ export const bookingResponseSchema = z.object({
   pooja_time: z.string().nullable(),
   person: z.object({ name: text, nakshatram: text }),
   poojari: poojariSchema.nullable(),
-  booking_status: z.enum(['pending', 'completed', 'cancelled']),
+  /**
+   * The pooja's own progress, renamed from `booking_status` server-side to stop
+   * it reading as a payment field — `order.payment_status` is that.
+   */
+  pooja_status: z.enum(['pending', 'completed', 'cancelled']),
   line_status: z.enum(['confirmed', 'cancelled', 'refunded']),
   assigned_at: z.string().nullable(),
   complete_by: z.string().nullable(),
@@ -90,7 +94,7 @@ export function toBooking(dto: BookingResponseDto): Booking {
     poojaTime: dto.pooja_time,
     person: { name: dto.person.name ?? '', nakshatram: dto.person.nakshatram ?? '' },
     poojari: dto.poojari,
-    status: dto.booking_status,
+    status: dto.pooja_status,
     lineStatus: dto.line_status,
     isOverdue: dto.is_overdue,
     completeBy: dto.complete_by,

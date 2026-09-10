@@ -22,7 +22,13 @@ export const rbacUserResponseSchema = z.object({
   username: z.string(),
   email: z.string(),
   phone_number: z.string().nullish(),
+  /** `nullish` so a backend that predates these still parses. */
+  first_name: z.string().nullish(),
+  last_name: z.string().nullish(),
+  full_name: z.string().nullish(),
   base_role: z.string(),
+  /** `nullish` so a backend that predates the field still parses. */
+  base_role_label: z.string().nullish(),
   assigned_roles: z.array(assignedRoleSchema),
   is_active: z.boolean(),
   is_superuser: z.boolean(),
@@ -69,7 +75,13 @@ export function toRbacUser(dto: RbacUserResponseDto): RbacUser {
     username: dto.username,
     email: dto.email,
     phone: dto.phone_number ?? '',
+    firstName: dto.first_name ?? '',
+    lastName: dto.last_name ?? '',
+    /* The server already falls back to the username; this covers a backend
+       that does not send the field at all. */
+    fullName: dto.full_name || dto.username,
     baseRole: dto.base_role,
+    baseRoleLabel: dto.base_role_label ?? '',
     assignedRoles: dto.assigned_roles.map(toAssignedRole),
     isActive: dto.is_active,
     isSuperuser: dto.is_superuser,

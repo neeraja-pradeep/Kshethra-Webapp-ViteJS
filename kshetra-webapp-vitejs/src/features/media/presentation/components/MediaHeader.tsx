@@ -1,7 +1,8 @@
 import { Button, Icon } from '@/shared/ui'
 
 interface MediaHeaderProps {
-  onAddTrack: () => void
+  /** Omitted for a role without `song.add_song` — the button is then not drawn. */
+  onAddTrack?: () => void
 }
 
 /** Page title + subtitle, and the primary "Add track" action. */
@@ -12,9 +13,11 @@ export function MediaHeader({ onAddTrack }: MediaHeaderProps) {
         <h1 className="m-0 text-3xl font-heading leading-tight tracking-title text-ink-strong">Media</h1>
         <p className="m-0 mt-1.5 text-sm text-ink-muted">Audio tracks served in the devotee app.</p>
       </div>
-      <Button theme="primary" iconLeft={<Icon name="plus" size={16} />} onClick={onAddTrack}>
-        Add track
-      </Button>
+      {onAddTrack && (
+        <Button theme="primary" iconLeft={<Icon name="plus" size={16} />} onClick={onAddTrack}>
+          Add track
+        </Button>
+      )}
     </div>
   )
 }

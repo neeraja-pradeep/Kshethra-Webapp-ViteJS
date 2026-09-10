@@ -90,7 +90,7 @@ poojas, two poojaris, two states):
       "pooja_time": null,
       "person": { "name": "Lakshmi", "nakshatram": "Ashwini" },
       "poojari": { "id": 24, "name": "Sharma Sastrigal" },
-      "booking_status": "completed",
+      "pooja_status": "completed",
       "line_status": "confirmed",
       "assigned_at": null,
       "complete_by": null,
@@ -118,11 +118,11 @@ Three things to know about the shape:
 - **`summary` counts the whole filtered set, not the page.** The tiles above
   the table stay still while you page through it. It follows the filters, so
   filtering to one god re-counts for that god.
-- **`booking_status` is this booking's own state.** The order it belongs to has
+- **`pooja_status` is this booking's own state.** The order it belongs to has
   a status too, but it is a roll-up: an order reads `completed` only once every
   booking still standing on it does. Completing one pooja for one person does
   not declare the rest of the family's bookings done.
-- **`line_status` is the money, `booking_status` is the work.** A booking whose
+- **`line_status` is the money, `pooja_status` is the work.** A booking whose
   payment was cancelled or refunded (`line_status`) can never be performed, so
   it reads `cancelled` on both.
 
@@ -170,7 +170,7 @@ GET /api/admin/bookings/all/?sort=-pooja_date&page=2&page_size=20
 | `page_size` | 10 | Max 100. |
 
 Sortable columns: `pooja`, `pooja_date`, `person`, `poojari`,
-`booking_status`, `order`, `created_at`.
+`pooja_status`, `order`, `created_at`.
 
 The default is the date the pooja is performed, not the date it was ordered —
 this is the list the temple works down.
@@ -205,7 +205,7 @@ Send one id for a single row, or several for a batch of ticked rows.
 patch itself without refetching:
 
 ```json
-{ "bookings": [ { "id": 22, "booking_status": "completed", "...": "..." } ] }
+{ "bookings": [ { "id": 22, "pooja_status": "completed", "...": "..." } ] }
 ```
 
 - **It does not touch `poojari`.** An admin recording that a pooja happened is
@@ -236,7 +236,7 @@ POST /api/admin/bookings/assign/
     {
       "id": 23,
       "poojari": { "id": 24, "name": "Sharma Sastrigal" },
-      "booking_status": "pending",
+      "pooja_status": "pending",
       "assigned_at": "2026-08-10T18:08:34.542524Z",
       "complete_by": "2026-08-11T18:08:34.542524Z",
       "is_overdue": false
@@ -315,7 +315,7 @@ split between two of them.
 | `pooja_time` | string\|null | Set only for special poojas with a time |
 | `person` | object | Who it is *for*: `name`, `nakshatram` |
 | `poojari` | object\|null | `null` when nobody is assigned |
-| `booking_status` | string | `pending` \| `completed` \| `cancelled` — the work |
+| `pooja_status` | string | `pending` \| `completed` \| `cancelled` — the work |
 | `line_status` | string | `confirmed` \| `cancelled` \| `refunded` — the money |
 | `assigned_at` | datetime\|null | When an admin last assigned it |
 | `complete_by` | datetime\|null | Deadline; `null` if no admin assigned it |
@@ -363,7 +363,7 @@ the money did last is what the row reports.
 |---|---|---|
 | `400` | Unknown filter value | `{"channel": "Expected one of app, counter."}` |
 | `400` | Non-numeric id filter | `{"god": "Expected a whole number."}` |
-| `400` | Unknown sort | `{"sort": "Expected one of booking_status, created_at, order, person, pooja, pooja_date, poojari, optionally prefixed with '-'."}` |
+| `400` | Unknown sort | `{"sort": "Expected one of created_at, order, person, pooja, pooja_date, pooja_status, poojari, optionally prefixed with '-'."}` |
 | `400` | Empty `booking_ids` | `{"booking_ids": ["This list may not be empty."]}` |
 | `400` | Booking cannot take the action | `{"detail": "This booking was cancelled and cannot be completed."}` |
 | `400` | Already performed | `{"detail": "This booking has already been performed and cannot be assigned."}` |

@@ -166,13 +166,11 @@ export function useSetPoojariGodsMutation() {
     mutationFn: async ({
       userId,
       godIds,
-      poojariName,
     }: {
       userId: number
       /** The whole list — anything omitted is dropped. `[]` returns them to unscoped. */
       godIds: readonly number[]
-      poojariName?: string
-    }) => unwrap(await setPoojariGods(userId, godIds, poojariName)),
+    }) => unwrap(await setPoojariGods(userId, godIds)),
     onSuccess: (_result, { userId }) =>
       queryClient.invalidateQueries({ queryKey: rbacKeys.poojariGods(userId) }),
   })

@@ -16,7 +16,7 @@ export const SORT_PARAM: Record<BookingSortKey, string> = {
   poojaDate: 'pooja_date',
   person: 'person',
   poojari: 'poojari',
-  status: 'booking_status',
+  status: 'pooja_status',
 }
 
 export interface BookingColumnsOptions {
@@ -123,7 +123,7 @@ export function buildBookingColumns(opts: BookingColumnsOptions): TableColumn<Bo
     },
     {
       key: 'status',
-      header: header('Booking status', 'status'),
+      header: header('Pooja status', 'status'),
       render: (_value, row) => <BookingStatusBadge label={statusLabel(row.status)} tone={statusTone(row.status)} />,
     },
     {

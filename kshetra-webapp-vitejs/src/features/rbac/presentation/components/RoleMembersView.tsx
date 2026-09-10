@@ -33,13 +33,17 @@ function MemberRow({
 }) {
   return (
     <label className="flex cursor-pointer items-center gap-2.75 rounded-lg px-2 py-1.5 hover:bg-hover">
-      <Checkbox checked={checked} onChange={onToggle} aria-label={user.username} />
-      <Avatar name={user.username} size="sm" />
+      <Checkbox checked={checked} onChange={onToggle} aria-label={user.fullName} />
+      <Avatar name={user.fullName} size="sm" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.25">
-        <span className="truncate text-sm font-medium text-ink-strong">{user.username}</span>
-        <span className="truncate text-xs text-ink-subtle">{user.email || user.phone || '—'}</span>
+        <span className="truncate text-sm font-medium text-ink-strong">{user.fullName}</span>
+        <span className="truncate text-xs text-ink-subtle">
+          {user.fullName === user.username
+            ? user.email || user.phone || '—'
+            : `${user.username} · ${user.email || user.phone || '—'}`}
+        </span>
       </div>
-      <Badge color="gray" size="sm">{baseRoleLabel(user.baseRole)}</Badge>
+      <Badge color="gray" size="sm">{baseRoleLabel(user.baseRole, user.baseRoleLabel)}</Badge>
       {!user.isActive && <Badge color="gray" size="sm">Inactive</Badge>}
     </label>
   )

@@ -2,46 +2,71 @@ import { Icon } from '@/shared/ui'
 import { cn } from '@/shared/lib/cn'
 
 import type { ReportDefinition } from '@/features/reports/domain/entities/report'
+import { reportIconName } from '@/features/reports/presentation/lib/reportIcons'
 
 export interface ReportCardProps {
   report: ReportDefinition
   selected: boolean
-  onSelect: (id: ReportDefinition['id']) => void
+  onSelect: (slug: string) => void
 }
 
-/** One report entry in the catalogue — an accent-tinted tile when selected. */
+/**
+ * One report entry in the catalogue.
+ *
+ * The card fills its grid cell rather than sizing to its text, and the
+ * description is clamped to two lines — the server writes them at wildly
+ * different lengths, and letting each card grow to fit made every row a
+ * different height.
+ */
 export function ReportCard({ report, selected, onSelect }: ReportCardProps) {
   return (
     <button
       type="button"
-      onClick={() => onSelect(report.id)}
+      disabled={!report.permitted}
+      onClick={() => onSelect(report.slug)}
+      title={report.description}
+      aria-pressed={selected}
       className={cn(
-        'flex w-64 items-start gap-2.75 rounded-2xl px-3.25 py-3 text-left font-sans transition-shadow duration-140 ease-ks hover:shadow-card-hover',
+        'group relative flex h-full w-full flex-col gap-2.5 rounded-2xl p-3.5 text-left font-sans',
+        'transition-[box-shadow,transform,background-color] duration-140 ease-ks',
+        report.permitted
+          ? 'hover:-translate-y-px hover:shadow-card-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+          : 'cursor-not-allowed opacity-55',
         selected
-          ? 'bg-primary-subtle shadow-[inset_0_0_0_1px_var(--color-primary-border),var(--shadow-card)]'
+          ? 'bg-primary-subtle shadow-[inset_0_0_0_1.5px_var(--color-primary)]'
           : 'bg-card shadow-card',
       )}
     >
       <span
         className={cn(
-          'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+          'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors duration-140 ease-ks',
           selected ? 'bg-primary text-white' : 'bg-primary-subtle text-primary',
         )}
       >
-        <Icon name={report.icon} size={17} />
+        <Icon name={reportIconName(report.icon)} size={18} />
       </span>
-      <span className="flex min-w-0 flex-col gap-0.75">
-        <span className={cn('text-sm font-semibold leading-tight', selected ? 'text-primary-subtle-text' : 'text-ink-strong')}>
-          {report.name}
+
+      <span className="flex min-w-0 flex-col gap-1">
+        <span
+          className={cn(
+            'text-sm font-semibold leading-snug',
+            selected ? 'text-primary-subtle-text' : 'text-ink-strong',
+          )}
+        >
+          {report.label}
         </span>
-        <span className="text-2xs leading-snug text-ink-subtle">{report.description}</span>
-        {report.flagged && (
-          <span className="inline-flex items-center gap-1 text-2xs font-medium text-warning">
-            <Icon name="warning-circle" weight="fill" size={12} />
-            Pending data source
-          </span>
-        )}
+        {/* Clamped, with the full text on the title attribute above. */}
+        <span className="line-clamp-2 text-2xs leading-relaxed text-ink-subtle">{report.description}</span>
       </span>
+
+      {/* The catalogue never lists a report that would 403, so this is rare —
+          a custom role given the screen but not what one report reads. */}
+      {!report.permitted && (
+        <span className="mt-auto inline-flex items-center gap-1 text-2xs font-medium text-warning">
+          <Icon name="lock-simple" weight="fill" size={12} />
+          Not available to your role
+        </span>
+      )}
     </button>
   )
 }

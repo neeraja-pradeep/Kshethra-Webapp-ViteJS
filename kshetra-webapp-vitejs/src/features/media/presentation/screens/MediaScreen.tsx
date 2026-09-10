@@ -1,20 +1,41 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { Spinner } from '@/shared/ui'
-import type { MediaTrack, MediaTrackDraft } from '@/features/media/domain/entities/media-track'
-import { MEDIA_TRACKS } from '@/features/media/presentation/data/media-tracks.mock'
-import { computeMediaKpis, filterMediaTracks, sortMediaTracks } from '@/features/media/presentation/lib/media-selectors'
+import { toFailure } from '@/core/error/result'
+import { Alert, Icon, Spinner } from '@/shared/ui'
+
+import { PERMISSIONS } from '@/features/auth/application/hooks/permissions'
+import { useCan } from '@/features/auth/application/hooks/useCan'
+import {
+  useCreateMediaTrackMutation,
+  useDeleteMediaTrackMutation,
+  useMediaTrackHomeScreenMutation,
+  useMediaTrackStatusMutation,
+  useUpdateMediaTrackMutation,
+} from '@/features/media/application/queries/useMediaMutations'
+import {
+  useMediaTrackQuery,
+  useMediaTracksQuery,
+} from '@/features/media/application/queries/useMediaQueries'
+import type { MediaTrack } from '@/features/media/domain/entities/media-track'
+import type { MediaFilters } from '@/features/media/domain/repositories/media.repository'
 import { FilteredEmptyState } from '@/features/media/presentation/components/FilteredEmptyState'
 import { MediaFiltersBar } from '@/features/media/presentation/components/MediaFiltersBar'
 import type { MediaHomeFilter, MediaStatusFilter } from '@/features/media/presentation/components/MediaFiltersBar'
 import { MediaHeader } from '@/features/media/presentation/components/MediaHeader'
-import { MediaPagination } from '@/features/media/presentation/components/MediaPagination'
 import { MediaKpiBand } from '@/features/media/presentation/components/MediaKpiBand'
+import type { MediaKpi } from '@/features/media/presentation/components/MediaKpiBand'
+import { MediaPagination } from '@/features/media/presentation/components/MediaPagination'
 import { MediaToast } from '@/features/media/presentation/components/MediaToast'
 import { MediaTrackTable } from '@/features/media/presentation/components/MediaTrackTable'
 import type { MediaSortKey } from '@/features/media/presentation/components/MediaTrackTable'
 import { TrackConfirmModal } from '@/features/media/presentation/components/TrackConfirmModal'
-import type { TrackFormMode } from '@/features/media/presentation/components/TrackFormHeader'
+import {
+  audioFileError,
+  blankMediaForm,
+  mediaFormFromTrack,
+  toMediaWrite,
+  type MediaFormValues,
+} from '@/features/media/presentation/lib/mediaForm'
 
 import { TrackFormScreen } from './TrackFormScreen'
 import type { TrackFormErrors } from './TrackFormScreen'
@@ -24,247 +45,303 @@ type MediaConfirmKind = 'discard' | 'deactivate' | 'delete'
 interface MediaConfirmState {
   open: boolean
   kind?: MediaConfirmKind
-  id?: string
-}
-
-interface MediaToastState {
-  show: boolean
-  message: string
-}
-
-function blankForm(): MediaTrackDraft {
-  return { title: '', artist: '', audioName: '', cover: null, homescreen: false, status: 'Active', plays: null }
+  id?: number
 }
 
 const TOAST_DURATION_MS = 2400
-const LOADING_PULSE_MS = 260
+/** One request per pause in typing, not per keystroke. */
+const SEARCH_DEBOUNCE_MS = 300
+const DEFAULT_PAGE_SIZE = 20
 
-/** Media library — list (KPIs, search, filters, table, pagination) + track detail/create form. */
+/** The server's ordering vocabulary is already the sort key — no translation needed. */
+const EMPTY_SUMMARY = { total: 0, active: 0, inactive: 0 }
+
+/**
+ * Media library — list (tiles, search, filters, table, pagination) plus the
+ * track detail/create form. Route: `/media`.
+ *
+ * The search, both filters, the sort and the paging are all applied by the
+ * server, and the tiles come from its `summary`. None of it is done here: the
+ * list is paged, so filtering the loaded rows would report one page's matches
+ * as though it were the whole library.
+ */
 export function MediaScreen() {
-  const [tracks, setTracks] = useState<MediaTrack[]>(MEDIA_TRACKS)
+  const can = useCan()
+  /** App Manager is a full writer here, unlike on the Agent code screen. */
+  const canWrite = can(PERMISSIONS.addSong)
+  const canDelete = can(PERMISSIONS.deleteSong)
+
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<MediaStatusFilter>('all')
   const [filterHome, setFilterHome] = useState<MediaHomeFilter>('any')
-  const [page, setPage] = useState(0)
-  const [pageSize, setPageSize] = useState(20)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [sortKey, setSortKey] = useState<MediaSortKey | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
-  const [loading, setLoading] = useState(false)
 
   const [formOpen, setFormOpen] = useState(false)
   const [formView, setFormView] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState<MediaTrackDraft>(blankForm())
-  const [errors, setErrors] = useState<TrackFormErrors>({})
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [form, setForm] = useState<MediaFormValues>(blankMediaForm())
+  const [localErrors, setLocalErrors] = useState<TrackFormErrors>({})
 
   const [confirm, setConfirm] = useState<MediaConfirmState>({ open: false })
-  const [toast, setToast] = useState<MediaToastState>({ show: false, message: '' })
+  const [toast, setToast] = useState({ show: false, message: '' })
 
-  const formSignatureRef = useRef<string | null>(null)
-  const loadingTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-
-  // Brief loading pulse on mount and whenever a filter changes (matches the DC prototype).
-  useEffect(() => {
-    setLoading(true)
-    if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current)
-    loadingTimerRef.current = setTimeout(() => setLoading(false), LOADING_PULSE_MS)
-    return () => {
-      if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, filterStatus, filterHome])
+  const formSignature = useRef<string | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** Object URLs for locally-picked covers, revoked so previews do not leak. */
+  const previewUrl = useRef<string | null>(null)
 
   useEffect(() => {
-    return () => {
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
-    }
-  }, [])
+    const id = setTimeout(() => setDebouncedSearch(search.trim()), SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(id)
+  }, [search])
 
-  const mode: TrackFormMode = formView && editingId ? 'view' : 'edit'
+  useEffect(
+    () => () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current)
+      if (previewUrl.current) URL.revokeObjectURL(previewUrl.current)
+    },
+    [],
+  )
 
-  const filteredTracks = useMemo(() => filterMediaTracks(tracks, search, filterStatus, filterHome), [tracks, search, filterStatus, filterHome])
-  const sortedTracks = useMemo(() => sortMediaTracks(filteredTracks, sortKey, sortDir), [filteredTracks, sortKey, sortDir])
-  const kpis = useMemo(() => computeMediaKpis(filteredTracks), [filteredTracks])
-
-  const total = sortedTracks.length
-  const totalPages = Math.max(1, Math.ceil(total / pageSize))
-  const currentPage = Math.min(page, totalPages - 1)
-  const pageRows = sortedTracks.slice(currentPage * pageSize, currentPage * pageSize + pageSize)
-  const pageInfo = total ? `Showing ${currentPage * pageSize + 1}–${Math.min(total, (currentPage + 1) * pageSize)} of ${total} tracks` : 'No tracks'
-  const pageLabel = `Page ${currentPage + 1} of ${totalPages}`
-  const hasActiveFilters = search.trim() !== '' || filterStatus !== 'all' || filterHome !== 'any'
-
-  function showToast(message: string) {
+  const showToast = (message: string) => {
     setToast({ show: true, message })
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
-    toastTimerRef.current = setTimeout(() => setToast({ show: false, message: '' }), TOAST_DURATION_MS)
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast({ show: false, message: '' }), TOAST_DURATION_MS)
   }
 
-  function handleClearFilters() {
+  const filters: MediaFilters = useMemo(
+    () => ({
+      ...(debouncedSearch ? { search: debouncedSearch } : {}),
+      ...(filterStatus === 'all' ? {} : { status: filterStatus }),
+      ...(filterHome === 'any' ? {} : { homeScreen: filterHome }),
+      ...(sortKey ? { ordering: `${sortDir === 'desc' ? '-' : ''}${sortKey}` } : {}),
+      page,
+      pageSize,
+    }),
+    [debouncedSearch, filterStatus, filterHome, sortKey, sortDir, page, pageSize],
+  )
+
+  const tracksQuery = useMediaTracksQuery(filters)
+  const detailQuery = useMediaTrackQuery(formOpen ? editingId : null)
+  const createTrack = useCreateMediaTrackMutation()
+  const updateTrack = useUpdateMediaTrackMutation()
+  const statusMutation = useMediaTrackStatusMutation()
+  const homeScreenMutation = useMediaTrackHomeScreenMutation()
+  const deleteMutation = useDeleteMediaTrackMutation()
+
+  const rows = useMemo(() => tracksQuery.data?.results ?? [], [tracksQuery.data])
+  const summary = tracksQuery.data?.summary ?? EMPTY_SUMMARY
+  const total = tracksQuery.data?.count ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const detail = detailQuery.data ?? null
+  const saving = createTrack.isPending || updateTrack.isPending
+
+  /** Straight from `summary` — it ignores the status filter by design. */
+  const kpis: MediaKpi[] = [
+    { key: 'total', value: String(summary.total), label: 'tracks' },
+    { key: 'active', value: String(summary.active), label: 'Active', dotClassName: 'bg-success' },
+    { key: 'inactive', value: String(summary.inactive), label: 'Inactive', dotClassName: 'bg-ink-disabled' },
+  ]
+
+  const hasActiveFilters = debouncedSearch !== '' || filterStatus !== 'all' || filterHome !== 'any'
+
+  function resetPaging() {
+    setPage(1)
+  }
+
+  function setPreview(url: string | null) {
+    if (previewUrl.current) URL.revokeObjectURL(previewUrl.current)
+    previewUrl.current = url
+  }
+
+  function closeForm() {
+    formSignature.current = null
+    setPreview(null)
+    setFormOpen(false)
+    setEditingId(null)
+    setLocalErrors({})
+    createTrack.reset()
+    updateTrack.reset()
+  }
+
+  const handleClearFilters = () => {
     setSearch('')
     setFilterStatus('all')
     setFilterHome('any')
-    setPage(0)
+    resetPaging()
   }
 
-  function handleSort(key: MediaSortKey) {
-    if (sortKey === key) {
-      setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortKey(key)
-      setSortDir('asc')
-    }
-    setPage(0)
+  const handleSort = (key: MediaSortKey) => {
+    setSortDir((prevDir) => (sortKey === key && prevDir === 'asc' ? 'desc' : 'asc'))
+    setSortKey(key)
+    resetPaging()
   }
 
-  function handlePrev() {
-    setPage((p) => Math.max(0, p - 1))
-  }
-  function handleNext() {
-    setPage((p) => Math.min(totalPages - 1, p + 1))
-  }
-
-  function handleAddTrack() {
-    const blank = blankForm()
-    formSignatureRef.current = JSON.stringify(blank)
-    setForm(blank)
-    setErrors({})
+  const handleAddTrack = () => {
+    const initial = blankMediaForm()
+    formSignature.current = JSON.stringify(initial)
+    setPreview(null)
+    setForm(initial)
+    setLocalErrors({})
+    createTrack.reset()
+    updateTrack.reset()
     setEditingId(null)
     setFormView(false)
     setFormOpen(true)
   }
 
-  function handleRowClick(track: MediaTrack) {
-    const draft: MediaTrackDraft = {
-      title: track.title,
-      artist: track.artist,
-      audioName: track.audioName,
-      cover: track.cover,
-      homescreen: track.homescreen,
-      plays: track.plays,
-      status: track.status,
-    }
-    formSignatureRef.current = JSON.stringify(draft)
-    setForm(draft)
-    setErrors({})
+  const handleRowClick = (track: MediaTrack) => {
     setEditingId(track.id)
     setFormView(true)
     setFormOpen(true)
+    setLocalErrors({})
+    createTrack.reset()
+    updateTrack.reset()
   }
 
-  function handleStartEdit() {
-    setFormView(false)
-  }
+  /** The form is seeded once the detail lands, so an edit starts from the server's copy. */
+  useEffect(() => {
+    if (!detail || editingId === null) return
+    const seeded = mediaFormFromTrack(detail)
+    formSignature.current = JSON.stringify({ ...seeded, coverFile: null })
+    setPreview(null)
+    setForm(seeded)
+  }, [detail, editingId])
+
+  const handleStartEdit = () => setFormView(false)
 
   function handleCancel() {
-    if (mode === 'edit' && formSignatureRef.current && JSON.stringify(form) !== formSignatureRef.current && !confirm.open) {
+    const dirty =
+      formSignature.current != null &&
+      !formView &&
+      JSON.stringify({ ...form, coverFile: null }) !== formSignature.current
+    if (dirty && !confirm.open) {
       setConfirm({ open: true, kind: 'discard' })
       return
     }
-    formSignatureRef.current = null
-    setFormOpen(false)
-    setEditingId(null)
+    closeForm()
   }
 
-  function handleSave() {
-    const title = form.title.trim()
-    const nextErrors: TrackFormErrors = {}
-    if (!title) nextErrors.title = 'Title is required.'
-    if (!form.audioName.trim()) nextErrors.audio = true
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors)
+  /**
+   * Checked at pick time rather than on save: the file is refused before an
+   * upload is spent on it, and the message names the real size, which the
+   * server's own floor-divided one cannot at the boundary.
+   */
+  const handleAudioUpload = (file: File) => {
+    const problem = audioFileError(file)
+    if (problem) {
+      setLocalErrors((prev) => ({ ...prev, audio: problem }))
       return
     }
-
-    setTracks((prev) => {
-      if (editingId) {
-        return prev.map((t) =>
-          t.id === editingId
-            ? { ...t, title, artist: form.artist, audioName: form.audioName, cover: form.cover, homescreen: form.homescreen, status: form.status }
-            : t,
-        )
-      }
-      const newTrack: MediaTrack = {
-        id: `MD-${prev.length + 1}-${Date.now().toString(36)}`,
-        title,
-        artist: form.artist,
-        audioName: form.audioName,
-        cover: form.cover,
-        homescreen: form.homescreen,
-        plays: null,
-        status: form.status,
-      }
-      return [newTrack, ...prev]
-    })
-
-    formSignatureRef.current = null
-    setFormOpen(false)
-    setEditingId(null)
-    setErrors({})
-    showToast('Track saved')
+    setLocalErrors((prev) => ({ ...prev, audio: undefined }))
+    setForm((prev) => ({ ...prev, audioFile: file }))
   }
 
-  function handleAskDelete() {
-    if (!editingId) return
-    setConfirm({ open: true, kind: 'delete', id: editingId })
+  const handleSave = () => {
+    const nextErrors: TrackFormErrors = {}
+    if (!form.title.trim()) nextErrors.title = 'A title is required.'
+    /* Required by the API even though the original design did not star it —
+       a blank artist is the most likely cause of a silently failing save. */
+    if (!form.artist.trim()) nextErrors.artist = 'An artist is required.'
+    if (editingId === null && !form.audioFile) nextErrors.audio = 'Attach an audio file.'
+    if (Object.keys(nextErrors).length) {
+      setLocalErrors(nextErrors)
+      return
+    }
+    setLocalErrors({})
+    const input = toMediaWrite(form)
+    const onDone = (message: string) => () => {
+      closeForm()
+      showToast(message)
+    }
+    if (editingId === null) createTrack.mutate(input, { onSuccess: onDone('Track added') })
+    else updateTrack.mutate({ id: editingId, input }, { onSuccess: onDone('Track saved') })
   }
 
-  function handleToggleStatus(track: MediaTrack) {
-    if (track.status === 'Active') {
+  const handleToggleStatus = (track: MediaTrack) => {
+    if (track.status === 'active') {
       setConfirm({ open: true, kind: 'deactivate', id: track.id })
       return
     }
-    setTracks((prev) => prev.map((t) => (t.id === track.id ? { ...t, status: 'Active' } : t)))
-    showToast(`${track.title} activated`)
+    statusMutation.mutate(
+      { id: track.id, status: 'active' },
+      { onSuccess: () => showToast(`${track.title} activated`) },
+    )
   }
 
-  function handleConfirmNo() {
+  const handleAskDelete = () => setConfirm({ open: true, kind: 'delete', id: editingId ?? undefined })
+
+  const handleConfirmNo = () => setConfirm({ open: false })
+
+  const handleConfirmYes = () => {
+    if (confirm.kind === 'discard') {
+      closeForm()
+      setConfirm({ open: false })
+      return
+    }
+    const id = confirm.id
+    if (id === undefined) {
+      setConfirm({ open: false })
+      return
+    }
+    const label = rows.find((t) => t.id === id)?.title ?? detail?.title ?? 'Track'
+    if (confirm.kind === 'deactivate') {
+      statusMutation.mutate(
+        { id, status: 'inactive' },
+        {
+          onSuccess: () => {
+            if (editingId === id) setForm((prev) => ({ ...prev, active: false }))
+            showToast(`${label} set inactive`)
+          },
+        },
+      )
+      setConfirm({ open: false })
+      return
+    }
+    if (confirm.kind === 'delete') {
+      deleteMutation.mutate(id, {
+        onSuccess: () => {
+          closeForm()
+          showToast(`${label} deleted`)
+        },
+      })
+      setConfirm({ open: false })
+      return
+    }
     setConfirm({ open: false })
   }
 
-  function handleConfirmYes() {
-    const { kind, id } = confirm
-    if (kind === 'discard') {
-      formSignatureRef.current = null
-      setFormOpen(false)
-      setEditingId(null)
-      setConfirm({ open: false })
-      return
-    }
-    const track = tracks.find((t) => t.id === id)
-    if (kind === 'deactivate' && id) {
-      setTracks((prev) => prev.map((t) => (t.id === id ? { ...t, status: 'Inactive' } : t)))
-      setForm((prev) => (editingId === id ? { ...prev, status: 'Inactive' } : prev))
-      setConfirm({ open: false })
-      showToast(`${track ? track.title : 'Track'} set inactive`)
-      return
-    }
-    if (kind === 'delete' && id) {
-      setTracks((prev) => prev.filter((t) => t.id !== id))
-      setConfirm({ open: false })
-      setFormOpen(false)
-      setEditingId(null)
-      showToast(`${track ? track.title : 'Track'} deleted`)
-      return
-    }
-    setConfirm({ open: false })
+  /**
+   * The home-screen switch writes through its own endpoint the moment it is
+   * flipped on an existing track — it is one field, and routing it through the
+   * form's save would make it wait on a title the operator may not have touched.
+   */
+  const handleHomescreenToggle = (value: boolean) => {
+    setForm((prev) => ({ ...prev, homeScreen: value }))
+    if (editingId !== null) homeScreenMutation.mutate({ id: editingId, homeScreen: value })
   }
 
-  // Escape closes the confirm dialog, else the open form.
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key !== 'Escape') return
-      if (confirm.open) {
-        handleConfirmNo()
-        return
-      }
-      if (formOpen) handleCancel()
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [confirm.open, formOpen, form, mode])
+  const listFailure = tracksQuery.isError
+    ? (toFailure(tracksQuery.error)?.message ?? 'The media library could not be loaded.')
+    : null
+  const writeFailure = toFailure(createTrack.error) ?? toFailure(updateTrack.error)
+  const serverFieldErrors = writeFailure?.kind === 'validation' ? writeFailure.fieldErrors : {}
+  const deleteFailure = deleteMutation.isError
+    ? (toFailure(deleteMutation.error)?.message ?? 'This track could not be deleted.')
+    : null
+
+  /** The server's field errors win over the local ones — it validates more. */
+  const formErrors: TrackFormErrors = {
+    title: serverFieldErrors.title?.[0] ?? localErrors.title,
+    artist: serverFieldErrors.artist?.[0] ?? localErrors.artist,
+    audio: serverFieldErrors.audio_file?.[0] ?? localErrors.audio,
+  }
+  const formBanner =
+    writeFailure && Object.keys(serverFieldErrors).length === 0 ? writeFailure.message : null
 
   let confirmTitle = ''
   let confirmBody = ''
@@ -278,38 +355,59 @@ export function MediaScreen() {
     confirmBody = 'It will be hidden from the app until reactivated.'
     confirmActionLabel = 'Set inactive'
   } else if (confirm.kind === 'delete') {
+    /* There is no server-side guard and no undo — the audio and both images go
+       with it — so the wording carries the whole warning. */
     confirmTitle = 'Delete track?'
-    confirmBody = 'This track will be permanently removed from the library. This can’t be undone.'
+    confirmBody =
+      'This permanently removes the track, its audio and its artwork. This can’t be undone — to merely retire it, set it inactive instead.'
     confirmActionLabel = 'Delete'
   }
 
-  const formTitle = editingId ? form.title || 'Edit track' : 'New track'
-  const emptyState = hasActiveFilters ? <FilteredEmptyState message="No tracks match your filters." onClearFilters={handleClearFilters} /> : 'No tracks yet.'
+  const formTitle = editingId !== null ? form.title || 'Edit track' : 'New track'
+  const firstRow = total === 0 ? 0 : (page - 1) * pageSize + 1
+  const lastRow = Math.min(total, page * pageSize)
+  const pageInfo = total ? `Showing ${firstRow}–${lastRow} of ${total} tracks` : 'No tracks'
+  const pageLabel = `Page ${page} of ${totalPages}`
+
+  const emptyState = hasActiveFilters ? (
+    <FilteredEmptyState message="No tracks match your filters." onClearFilters={handleClearFilters} />
+  ) : (
+    'No tracks yet.'
+  )
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-sunken">
       <div className="flex h-full flex-col overflow-hidden">
-        <MediaHeader onAddTrack={handleAddTrack} />
+        {/* Hidden rather than disabled for a read-only role — the API would 403. */}
+        <MediaHeader onAddTrack={canWrite ? handleAddTrack : undefined} />
         <MediaFiltersBar
           search={search}
           onSearchChange={(v) => {
             setSearch(v)
-            setPage(0)
+            resetPaging()
           }}
           status={filterStatus}
           onStatusChange={(v) => {
             setFilterStatus(v)
-            setPage(0)
+            resetPaging()
           }}
           home={filterHome}
           onHomeChange={(v) => {
             setFilterHome(v)
-            setPage(0)
+            resetPaging()
           }}
         />
         <MediaKpiBand kpis={kpis} />
 
-        {loading ? (
+        {(listFailure || deleteFailure) && (
+          <div className="px-7 pb-3">
+            <Alert type="danger" icon={<Icon name="warning" size={16} />}>
+              {listFailure ?? deleteFailure}
+            </Alert>
+          </div>
+        )}
+
+        {tracksQuery.isPending ? (
           <div className="flex flex-1 items-center justify-center">
             <Spinner size={40} />
           </div>
@@ -317,7 +415,7 @@ export function MediaScreen() {
           <div className="mx-7 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-xs">
             <div className="min-h-0 flex-1 overflow-auto">
               <MediaTrackTable
-                rows={pageRows}
+                rows={[...rows]}
                 sortKey={sortKey}
                 sortDir={sortDir}
                 onSort={handleSort}
@@ -334,37 +432,46 @@ export function MediaScreen() {
           pageSize={pageSize}
           onPageSizeChange={(size) => {
             setPageSize(size)
-            setPage(0)
+            resetPaging()
           }}
           pageLabel={pageLabel}
-          prevDisabled={currentPage <= 0}
-          nextDisabled={currentPage >= totalPages - 1}
-          onPrev={handlePrev}
-          onNext={handleNext}
+          prevDisabled={page <= 1}
+          nextDisabled={page >= totalPages}
+          onPrev={() => setPage((p) => Math.max(1, p - 1))}
+          onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
         />
       </div>
 
       {formOpen && (
         <TrackFormScreen
-          mode={mode}
-          isEditingExisting={!!editingId}
+          mode={formView && editingId !== null ? 'view' : 'edit'}
+          isEditingExisting={editingId !== null}
           formTitle={formTitle}
           form={form}
-          errors={errors}
+          errors={formErrors}
+          banner={formBanner}
+          saving={saving}
+          loading={editingId !== null && detailQuery.isPending}
+          playCount={detail?.playCount ?? null}
+          duration={detail?.duration ?? null}
+          canDelete={canDelete}
           onBack={handleCancel}
           onStartEdit={handleStartEdit}
           onSave={handleSave}
           onTitleChange={(v) => setForm((prev) => ({ ...prev, title: v }))}
           onArtistChange={(v) => setForm((prev) => ({ ...prev, artist: v }))}
           onCoverUpload={(file) => {
-            const reader = new FileReader()
-            reader.onload = () => setForm((prev) => ({ ...prev, cover: typeof reader.result === 'string' ? reader.result : prev.cover }))
-            reader.readAsDataURL(file)
+            const url = URL.createObjectURL(file)
+            setPreview(url)
+            setForm((prev) => ({ ...prev, coverFile: file, coverPreview: url, coverCleared: false }))
           }}
-          onCoverRemove={() => setForm((prev) => ({ ...prev, cover: null }))}
-          onAudioUpload={(file) => setForm((prev) => ({ ...prev, audioName: file.name }))}
-          onHomescreenToggle={(v) => setForm((prev) => ({ ...prev, homescreen: v }))}
-          onStatusToggle={(v) => setForm((prev) => ({ ...prev, status: v ? 'Active' : 'Inactive' }))}
+          onCoverRemove={() => {
+            setPreview(null)
+            setForm((prev) => ({ ...prev, coverFile: null, coverPreview: null, coverCleared: true }))
+          }}
+          onAudioUpload={handleAudioUpload}
+          onHomescreenToggle={handleHomescreenToggle}
+          onStatusToggle={(v) => setForm((prev) => ({ ...prev, active: v }))}
           onAskDelete={handleAskDelete}
         />
       )}

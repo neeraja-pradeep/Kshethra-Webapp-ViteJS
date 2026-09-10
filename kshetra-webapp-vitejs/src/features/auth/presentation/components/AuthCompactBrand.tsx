@@ -1,4 +1,4 @@
-import { BRAND_MARK } from '@/core/config/app'
+import { BRAND_MARK, TEMPLE_LOCALITY, TEMPLE_NAME } from '@/core/config/app'
 
 /**
  * Centered brand mark shown above the form on narrow viewports, replacing
@@ -12,7 +12,7 @@ export function AuthCompactBrand() {
       </span>
       <div className="text-center">
         <div className="text-base font-bold tracking-tight text-ink-strong">Kshetra Admin</div>
-        <div className="mt-0.5 text-2xs text-ink-subtle">Peramangalam · Sree Nagaraja Kshetram</div>
+        <div className="mt-0.5 text-2xs text-ink-subtle">{`${TEMPLE_LOCALITY} · ${TEMPLE_NAME}`}</div>
       </div>
     </div>
   )

@@ -9,9 +9,9 @@ import type {
 /**
  * Wire shapes for the shrine list.
  *
- * `GET` and `PUT` answer with **different** envelopes — the read names the
- * poojari, the write reports a count and a message — so they are parsed
- * separately rather than forced into one schema.
+ * `GET` and `PUT` answer with the **same** envelope — the write echoes the read
+ * and adds a `message` — so one schema parses both and the write no longer has
+ * to be told who it was sent for.
  */
 
 /** The category itself. Media fields are ignored: this list is text. */
@@ -27,14 +27,9 @@ const assignmentSchema = z.object({
   assigned_at: z.string(),
 })
 
-/** `GET admin/poojaris/{id}/gods/`. */
+/** `GET` and `PUT admin/poojaris/{id}/gods/` — the write adds only a `message`. */
 export const poojariGodsResponseSchema = z.object({
   poojari: z.object({ id: z.number(), name: z.string() }),
-  gods: z.array(assignmentSchema),
-})
-
-/** `PUT admin/poojaris/{id}/gods/` — no `poojari` block, so it maps separately. */
-export const poojariGodsWriteResponseSchema = z.object({
   gods: z.array(assignmentSchema),
 })
 
@@ -46,7 +41,6 @@ export const godOptionResponseSchema = z.object({
 })
 
 export type PoojariGodsResponseDto = z.infer<typeof poojariGodsResponseSchema>
-export type PoojariGodsWriteResponseDto = z.infer<typeof poojariGodsWriteResponseSchema>
 export type GodOptionResponseDto = z.infer<typeof godOptionResponseSchema>
 
 function toAssignment(dto: z.infer<typeof assignmentSchema>): PoojariGodAssignment {
@@ -63,14 +57,6 @@ export function toPoojariGods(dto: PoojariGodsResponseDto): PoojariGods {
     poojariName: dto.poojari.name,
     assignments: dto.gods.map(toAssignment),
   }
-}
-
-/**
- * The write's answer, given the poojari it was sent for — the response body
- * does not name them, and the caller already knows.
- */
-export function toPoojariGodsFromWrite(dto: PoojariGodsWriteResponseDto, poojari: PoojariGods): PoojariGods {
-  return { ...poojari, assignments: dto.gods.map(toAssignment) }
 }
 
 export function toGodOption(dto: GodOptionResponseDto): PoojariGodOption {

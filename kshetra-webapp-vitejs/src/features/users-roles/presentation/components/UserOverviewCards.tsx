@@ -21,16 +21,17 @@ export function UserOverviewCards({ user, createdAtDisplay }: UserOverviewCardsP
     <div className="flex flex-wrap items-start gap-4">
       <div className="flex min-w-0 grow basis-[340px] flex-col gap-3.5 rounded-2xl bg-card p-5 shadow-sm">
         <div className="flex items-center gap-3.5">
-          <Avatar name={user.username} size="xl" />
+          <Avatar name={user.fullName} size="xl" />
           <div className="min-w-0">
-            <div className="text-lg font-semibold text-ink-strong">{user.username}</div>
+            <div className="text-lg font-semibold text-ink-strong">{user.fullName}</div>
             <div className="mt-1.25 flex flex-wrap items-center gap-1.5">
-              <BaseRoleBadge baseRole={user.baseRole} />
+              <BaseRoleBadge baseRole={user.baseRole} label={user.baseRoleLabel} />
               <StatusBadge status={user.isActive ? 'Active' : 'Inactive'} />
             </div>
           </div>
         </div>
         <div className="h-px bg-stroke-subtle" />
+        {user.fullName !== user.username && <DetailFieldRow label="Username" value={user.username} />}
         <DetailFieldRow label="Email" value={user.email || '—'} />
         <DetailFieldRow label="Phone" value={user.phone || '—'} />
         <DetailFieldRow label="Created on" value={createdAtDisplay} weight="medium" />

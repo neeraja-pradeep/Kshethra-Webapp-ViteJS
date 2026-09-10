@@ -146,12 +146,6 @@ export function StaffUserFormView({
                 error={fieldError('lastName', 'last_name')}
               />
             </div>
-            {editing && (
-              <Alert type="info">
-                Names are saved but not returned by the registry, so they will not appear here again after saving. The
-                read serializer needs to expose them before this field can round-trip.
-              </Alert>
-            )}
             <div className="grid gap-3 md:grid-cols-2">
               <Input
                 label="Email"

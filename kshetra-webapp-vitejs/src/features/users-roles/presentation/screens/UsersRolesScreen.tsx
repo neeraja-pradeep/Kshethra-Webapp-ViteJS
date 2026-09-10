@@ -62,12 +62,19 @@ const SEARCH_DEBOUNCE_MS = 300
 const TOAST_MS = 2400
 
 const ALL = 'all'
-const BASE_ROLES = ['temple_user', 'temple_poojari', 'temple_admin'] as const
-
-const BASE_ROLE_FILTER_OPTIONS: SelectOption[] = [
-  { value: ALL, label: 'All base roles' },
-  ...BASE_ROLES.map((role) => ({ value: role, label: baseRoleLabel(role) })),
-]
+/**
+ * The base roles worth filtering by.
+ *
+ * Not read from `assignable-roles/`: that endpoint answers "what may this
+ * operator hand out", which is a narrower and differently-permissioned
+ * question than "what do existing rows carry" — it needs `manage_users`, and
+ * it omits `temple_user` because devotees are never assigned by hand. Filtering
+ * a list you can already see should not require permission to change it.
+ *
+ * `counter_staff` is here because real rows carry it; leaving it out made those
+ * accounts unreachable from this dropdown.
+ */
+const BASE_ROLES = ['temple_user', 'temple_poojari', 'temple_admin', 'counter_staff'] as const
 const PAGE_SIZE_OPTIONS: SelectOption[] = PAGE_SIZES.map((n) => ({ value: String(n), label: `${n} / page` }))
 /** Only used before `assignable-roles/` answers; the dropdown replaces it. */
 const DEFAULT_BASE_ROLE = 'counter_staff'
@@ -209,6 +216,26 @@ export function UsersRolesScreen() {
     [rolesQuery.data],
   )
 
+  /**
+   * Base-role filter options, labelled by the server wherever it has told us.
+   *
+   * Labels are taken from the loaded rows — every row now carries the server's
+   * own text — so the dropdown and the list cannot disagree about what a role
+   * is called. A role with no row on the current page falls back to a derived
+   * label, which is only ever a display difference.
+   */
+  const baseRoleFilterOptions: SelectOption[] = useMemo(() => {
+    const serverLabels = new Map(
+      (usersQuery.data?.results ?? [])
+        .filter((user) => user.baseRoleLabel)
+        .map((user) => [user.baseRole, user.baseRoleLabel]),
+    )
+    return [
+      { value: ALL, label: 'All base roles' },
+      ...BASE_ROLES.map((role) => ({ value: role, label: baseRoleLabel(role, serverLabels.get(role)) })),
+    ]
+  }, [usersQuery.data])
+
   const total = usersQuery.data?.count ?? 0
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
 
@@ -220,9 +247,11 @@ export function UsersRolesScreen() {
       (usersQuery.data?.results ?? []).map((user) => ({
         id: user.id,
         username: user.username,
+        fullName: user.fullName,
         email: user.email,
         phone: user.phone,
         baseRole: user.baseRole,
+        baseRoleLabel: user.baseRoleLabel,
         roles: user.assignedRoles.map((role) => ({ name: role.name, label: role.label })),
         isActive: user.isActive,
       })),
@@ -488,7 +517,7 @@ export function UsersRolesScreen() {
             roleOptions={roleFilterOptions}
             filterRole={filterRole}
             onFilterRoleChange={(value) => { setFilterRole(value); setPage(1) }}
-            baseRoleOptions={BASE_ROLE_FILTER_OPTIONS}
+            baseRoleOptions={baseRoleFilterOptions}
             filterBaseRole={filterBaseRole}
             onFilterBaseRoleChange={(value) => { setFilterBaseRole(value); setPage(1) }}
             resultLabel={resultLabel}
@@ -558,13 +587,7 @@ export function UsersRolesScreen() {
                       ? (toFailure(setShrines.error)?.message ?? 'The shrine list could not be saved.')
                       : null
                 }
-                onSave={(godIds) =>
-                  setShrines.mutate({
-                    userId: detailQuery.data.id,
-                    godIds,
-                    poojariName: detailQuery.data.username,
-                  })
-                }
+                onSave={(godIds) => setShrines.mutate({ userId: detailQuery.data.id, godIds })}
               />
             ) : undefined
           }

@@ -4,12 +4,20 @@ export interface ReportExportPanelProps {
   reportName: string
   resultLabel: string
   exportBusy: boolean
+  /**
+   * The formats this report offers, from the catalogue. A button is drawn only
+   * for a format the server will actually serve — offering one it refuses would
+   * hand the admin a 400 for a control the screen invented.
+   */
+  formats: readonly ('csv' | 'xlsx')[]
+  /** `rbac.export_reports`. Without it the buttons are not drawn at all. */
+  canExport: boolean
   onExportCsv: () => void
   onExportXls: () => void
 }
 
 /** Result-set summary: icon, row count, and the CSV / Excel export affordances. */
-export function ReportExportPanel({ reportName, resultLabel, exportBusy, onExportCsv, onExportXls }: ReportExportPanelProps) {
+export function ReportExportPanel({ reportName, resultLabel, exportBusy, formats, canExport, onExportCsv, onExportXls }: ReportExportPanelProps) {
   return (
     <div className="flex flex-wrap items-center gap-3.5 rounded-2xl bg-card px-5 py-3.75 shadow-sm">
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-subtle text-primary">
@@ -22,8 +30,9 @@ export function ReportExportPanel({ reportName, resultLabel, exportBusy, onExpor
           <span className="text-sm text-ink-subtle">match the current filters</span>
         </div>
       </div>
-      {!exportBusy && (
+      {!exportBusy && canExport && (
         <div className="flex shrink-0 gap-2.5">
+          {formats.includes('csv') && (
           <button
             type="button"
             onClick={onExportCsv}
@@ -32,6 +41,8 @@ export function ReportExportPanel({ reportName, resultLabel, exportBusy, onExpor
             <Icon name="file-csv" size={17} />
             Export CSV
           </button>
+          )}
+          {formats.includes('xlsx') && (
           <button
             type="button"
             onClick={onExportXls}
@@ -40,6 +51,7 @@ export function ReportExportPanel({ reportName, resultLabel, exportBusy, onExpor
             <Icon name="file-xls" size={17} color="var(--color-success)" />
             Export Excel
           </button>
+          )}
         </div>
       )}
       {exportBusy && (

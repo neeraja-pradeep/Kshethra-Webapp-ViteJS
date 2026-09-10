@@ -36,9 +36,8 @@ export function staffUserFromRecord(user: RbacUser): StaffUserFormValues {
     role: user.baseRole,
     email: user.email,
     phoneNumber: user.phone,
-    // The registry does not return names — see the note rendered below.
-    firstName: '',
-    lastName: '',
+    firstName: user.firstName,
+    lastName: user.lastName,
     isActive: user.isActive,
     employeeId: '',
   }

@@ -3,18 +3,18 @@ import type { SelectOption } from '@/shared/ui'
 import type { MediaTrackStatus } from '@/features/media/domain/entities/media-track'
 
 export type MediaStatusFilter = 'all' | MediaTrackStatus
-export type MediaHomeFilter = 'any' | 'featured' | 'not'
+export type MediaHomeFilter = 'any' | 'featured' | 'regular'
 
 const STATUS_OPTIONS: SelectOption[] = [
   { value: 'all', label: 'All statuses' },
-  { value: 'Active', label: 'Active' },
-  { value: 'Inactive', label: 'Inactive' },
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
 ]
 
 const HOME_OPTIONS: SelectOption[] = [
   { value: 'any', label: 'All tracks' },
   { value: 'featured', label: 'On home screen' },
-  { value: 'not', label: 'Not featured' },
+  { value: 'regular', label: 'Not featured' },
 ]
 
 interface MediaFiltersBarProps {

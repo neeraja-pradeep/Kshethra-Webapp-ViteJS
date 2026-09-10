@@ -18,13 +18,24 @@ import {
   type StockAdjustmentDto,
 } from '@/features/store/infrastructure/data-sources/remote/stockAdjustment.response'
 
+/**
+ * `stock_state` as the server reads it: one value, or several ORed.
+ *
+ * An empty array is never reached — the caller drops the key entirely rather
+ * than sending a blank filter, which the server would reject.
+ */
+function toStockStateParam(state: NonNullable<ProductFilters['stockState']>): string {
+  return typeof state === 'string' ? state : state.join(',')
+}
+
 /** Only keys the caller actually set are sent — an empty one means "no filter". */
 function toParams(filters: ProductFilters): Record<string, string | number> {
   return {
     ...(filters.search ? { search: filters.search } : {}),
     ...(filters.category ? { category: filters.category } : {}),
     ...(filters.status ? { status: filters.status } : {}),
-    ...(filters.stockState ? { stock_state: filters.stockState } : {}),
+    // A list becomes the comma form the server ORs; a bare value is unchanged.
+    ...(filters.stockState?.length ? { stock_state: toStockStateParam(filters.stockState) } : {}),
     ...(filters.ordering ? { ordering: filters.ordering } : {}),
     ...(filters.page ? { page: filters.page } : {}),
     ...(filters.pageSize ? { page_size: filters.pageSize } : {}),

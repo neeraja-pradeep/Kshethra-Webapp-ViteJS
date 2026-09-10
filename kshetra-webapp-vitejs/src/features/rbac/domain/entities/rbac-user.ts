@@ -28,6 +28,15 @@ export interface RbacUser {
    * searchable only. Verified against the live endpoint.
    */
   readonly phone: string
+  /** Blank on accounts created without one. */
+  readonly firstName: string
+  readonly lastName: string
+  /**
+   * The server's rendering of the two names, which **falls back to `username`**
+   * when both are blank — so it is always safe to show, but it is not proof
+   * that a real name was ever entered. Check `firstName`/`lastName` for that.
+   */
+  readonly fullName: string
   /**
    * `temple_user` | `temple_poojari` | `temple_admin`, and the staff roles.
    *
@@ -36,6 +45,16 @@ export interface RbacUser {
    * previous role's — it is not additive, unlike `assignedRoles`.
    */
   readonly baseRole: string
+  /**
+   * The server's own display text for `baseRole` — "Admin", "Devotee",
+   * "Superuser" for the empty base role.
+   *
+   * Served alongside every row so the client never has to keep its own map of
+   * role names to labels, which is how the list and the role dropdown came to
+   * disagree about `temple_admin`. Empty only if the backend predates the
+   * field; `baseRoleLabel` falls back to deriving one then.
+   */
+  readonly baseRoleLabel: string
   /** Custom roles only — the base role is `baseRole`. */
   readonly assignedRoles: readonly AssignedRole[]
   readonly isActive: boolean

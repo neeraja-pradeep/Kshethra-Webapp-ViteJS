@@ -9,10 +9,14 @@ interface TrackFormHeaderProps {
   onStartEdit: () => void
   onCancel: () => void
   onSave: () => void
+  /** A save is in flight: the button spins and Cancel locks. */
+  saving?: boolean
+  /** `song.add_song`/`change_song`. Without it Edit is not offered. */
+  canEdit?: boolean
 }
 
 /** Full-screen form top bar: back, breadcrumb + track title, and mode-dependent actions. */
-export function TrackFormHeader({ mode, title, onBack, onStartEdit, onCancel, onSave }: TrackFormHeaderProps) {
+export function TrackFormHeader({ mode, title, onBack, onStartEdit, onCancel, onSave, saving = false, canEdit = true }: TrackFormHeaderProps) {
   return (
     <div className="flex h-14 flex-shrink-0 items-center gap-2.5 border-b border-stroke bg-card px-6">
       <button
@@ -38,17 +42,17 @@ export function TrackFormHeader({ mode, title, onBack, onStartEdit, onCancel, on
           View only
         </span>
       )}
-      {mode === 'view' && (
+      {mode === 'view' && canEdit && (
         <Button theme="primary" iconLeft={<Icon name="pencil-simple" size={15} />} onClick={onStartEdit}>
           Edit
         </Button>
       )}
       {mode === 'edit' && (
         <>
-          <Button theme="default" variant="outline" onClick={onCancel}>
+          <Button theme="default" variant="outline" disabled={saving} onClick={onCancel}>
             Cancel
           </Button>
-          <Button theme="primary" iconLeft={<Icon name="check" size={16} />} onClick={onSave}>
+          <Button theme="primary" loading={saving} iconLeft={<Icon name="check" size={16} />} onClick={onSave}>
             Save track
           </Button>
         </>

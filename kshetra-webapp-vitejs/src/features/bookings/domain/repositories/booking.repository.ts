@@ -31,7 +31,7 @@ export interface BookingFilters {
 }
 
 /** The sortable columns the server recognises. Anything else is a `400`. */
-export type BookingSortField = 'pooja' | 'pooja_date' | 'person' | 'poojari' | 'booking_status' | 'order' | 'created_at'
+export type BookingSortField = 'pooja' | 'pooja_date' | 'person' | 'poojari' | 'pooja_status' | 'order' | 'created_at'
 
 /** A page of the feed, plus counts over the whole filtered set. */
 export interface BookingPage {

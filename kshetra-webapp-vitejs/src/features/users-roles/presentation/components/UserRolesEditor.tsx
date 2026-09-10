@@ -67,7 +67,7 @@ export function UserRolesEditor({
               </div>
             </div>
             <div>
-              <RoleBadge name={user.baseRole} label={baseRoleLabel(user.baseRole)} variant="base" />
+              <RoleBadge name={user.baseRole} label={baseRoleLabel(user.baseRole, user.baseRoleLabel)} variant="base" />
             </div>
           </div>
 

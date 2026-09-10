@@ -1,8 +1,16 @@
 /** App-wide constants. Env values are read here once (see env.ts). */
 
 export const APP_NAME = 'Kshetra'
-/** Printed on counter receipts. No backend field exposes this yet. */
-export const TEMPLE_NAME = 'Sri Kshetra Devasthanam'
+/**
+ * The temple itself, printed on counter receipts and shown on the dashboard.
+ *
+ * No backend field exposes this yet, so it lives here rather than in each
+ * screen — the receipt and the dashboard header once carried two *different*
+ * hardcoded temples. Confirmed with the backend team as the correct name.
+ */
+export const TEMPLE_NAME = 'Sree Nagaraja Kshetram'
+/** Where it is. Shown beside the name; not exposed by the API either. */
+export const TEMPLE_LOCALITY = 'Peramangalam'
 export const BRAND_MARK = 'क'
 
 /** Default list page sizes offered across list views. */

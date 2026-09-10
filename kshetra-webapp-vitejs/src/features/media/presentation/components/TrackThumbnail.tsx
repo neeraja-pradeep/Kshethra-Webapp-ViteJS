@@ -1,7 +1,7 @@
 import { avatarColorFor, initialsFor } from '@/features/media/presentation/lib/media-format'
 
 interface TrackThumbnailProps {
-  id: string
+  id: number | string
   title: string
   cover: string | null
 }

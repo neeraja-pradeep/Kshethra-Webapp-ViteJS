@@ -58,4 +58,13 @@ export const QUERY_ROOTS = {
    */
   agentCodes: ['agent-codes'],
 
+  /**
+   * Reports. Read-only and derived from every other table, so nothing
+   * invalidates it — the screen refetches when its own query changes.
+   */
+  reports: ['reports'],
+
+  /** App > Media — the audio the devotee app plays. */
+  media: ['media'],
+
 } as const

@@ -26,17 +26,21 @@ export function roleBadgeColor(roleName: string): BadgeColor {
   return ROLE_COLORS[hash % ROLE_COLORS.length]
 }
 
-/** The three fixed base roles, which decide which sign-in endpoint accepts a user. */
-const BASE_ROLE_LABELS: Readonly<Record<string, string>> = {
-  temple_user: 'Devotee',
-  temple_poojari: 'Poojari',
-  temple_admin: 'Temple Admin',
-}
-
-/** Display name for a base role; title-cases anything unrecognised. */
-export function baseRoleLabel(baseRole: string): string {
-  const known = BASE_ROLE_LABELS[baseRole]
-  if (known) return known
+/**
+ * Display name for a base role.
+ *
+ * The server labels every role it serves (`base_role_label` on each user row),
+ * so prefer that: it is the same map the role dropdown reads, which is what
+ * stops the list and the dropdown drifting apart — they once disagreed about
+ * whether `temple_admin` reads "Admin" or "Temple Admin".
+ *
+ * The derivation below is only reached when the server sent no label: an older
+ * backend, or a role name held locally with no row behind it. It title-cases
+ * the raw name, so `counter_staff` still renders as "Counter Staff" rather
+ * than blank.
+ */
+export function baseRoleLabel(baseRole: string, serverLabel?: string): string {
+  if (serverLabel) return serverLabel
   return baseRole
     .split('_')
     .map((part) => (part ? part.charAt(0).toUpperCase() + part.slice(1) : part))

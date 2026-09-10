@@ -1,79 +1,150 @@
-import { Button, Select } from '@/shared/ui'
+import { Button, Input, Select } from '@/shared/ui'
+import type { SelectOption } from '@/shared/ui'
 
-import { DATE_RANGE_PRESETS } from '@/features/reports/presentation/data/reports-catalogue.mock'
-
-import type { DateRangePreset, ReportFilterDef, ReportFilterState } from '@/features/reports/domain/entities/report'
+import type {
+  ReportFilter,
+  ReportFilterOption,
+  ReportPeriodPreset,
+} from '@/features/reports/domain/entities/report'
 
 export interface ReportFilterBarProps {
-  hasDate: boolean
-  filters: ReportFilterState
-  extraFilters: readonly ReportFilterDef[]
-  onPresetChange: (preset: DateRangePreset) => void
-  onFromChange: (value: string) => void
-  onToChange: (value: string) => void
-  onExtraChange: (key: string, value: string) => void
+  /** The report's own filters, as the catalogue defines them. */
+  filters: readonly ReportFilter[]
+  /** The period presets, served rather than hardcoded. */
+  periods: readonly ReportPeriodPreset[]
+  hasPeriod: boolean
+  /** Which date the period narrows, e.g. `pooja_date`. Shown so the window is unambiguous. */
+  periodField: string | null
+  period: string
+  dateFrom: string
+  dateTo: string
+  /** The report's own filter values, keyed as the catalogue names them. */
+  values: Readonly<Record<string, string>>
+  /** Options fetched for filters that name an `optionsSource`, keyed by source. */
+  fetchedOptions: Readonly<Record<string, readonly ReportFilterOption[]>>
+  onPeriodChange: (period: string) => void
+  onDateFromChange: (value: string) => void
+  onDateToChange: (value: string) => void
+  onFilterChange: (key: string, value: string) => void
   onReset: () => void
 }
 
-const PRESET_OPTIONS = DATE_RANGE_PRESETS.map((preset) => ({ value: preset, label: preset }))
+/** `period=custom` is the one preset that reveals the two date inputs. */
+const CUSTOM_PERIOD = 'custom'
 
-/** Shared filter row — date range (when relevant) plus the report's own extra filters. */
+/**
+ * The filter row, built from the report's own definitions.
+ *
+ * Nothing here knows which report is showing: the controls, their labels, their
+ * dropdown contents and the period presets all come from the catalogue, so a
+ * filter added server-side appears with no frontend release.
+ *
+ * The `date_range` filter is skipped — the period control above already *is*
+ * that filter, and drawing it twice would offer two ways to set one window.
+ */
 export function ReportFilterBar({
-  hasDate,
   filters,
-  extraFilters,
-  onPresetChange,
-  onFromChange,
-  onToChange,
-  onExtraChange,
+  periods,
+  hasPeriod,
+  periodField,
+  period,
+  dateFrom,
+  dateTo,
+  values,
+  fetchedOptions,
+  onPeriodChange,
+  onDateFromChange,
+  onDateToChange,
+  onFilterChange,
   onReset,
 }: ReportFilterBarProps) {
+  const periodOptions: SelectOption[] = periods.map((p) => ({ value: p.value, label: p.label }))
+  const ownFilters = filters.filter((f) => f.type !== 'date_range')
+
   return (
     <div className="flex flex-wrap items-center gap-2.5 pt-0.5">
-      {hasDate && (
+      {hasPeriod && (
         <>
-          <div className="w-[180px]">
+          <div className="w-[170px]">
             <Select
               size="sm"
-              aria-label="Date range"
-              options={PRESET_OPTIONS}
-              value={filters.preset}
-              onChange={(e) => onPresetChange(e.target.value as DateRangePreset)}
+              aria-label="Period"
+              options={periodOptions}
+              value={period}
+              onChange={(e) => onPeriodChange(e.target.value)}
             />
           </div>
-          {filters.preset === 'Custom range' && (
+          {period === CUSTOM_PERIOD && (
             <>
-              <input
+              <Input
+                size="sm"
                 type="date"
                 aria-label="From"
-                value={filters.from}
-                onChange={(e) => onFromChange(e.target.value)}
-                className="h-8 rounded-md bg-card px-2.5 font-sans text-sm text-ink shadow-xs"
+                value={dateFrom}
+                onChange={(e) => onDateFromChange(e.target.value)}
               />
-              <span className="text-ink-subtle">→</span>
-              <input
+              <Input
+                size="sm"
                 type="date"
-                aria-label="Until"
-                value={filters.to}
-                onChange={(e) => onToChange(e.target.value)}
-                className="h-8 rounded-md bg-card px-2.5 font-sans text-sm text-ink shadow-xs"
+                aria-label="To"
+                value={dateTo}
+                onChange={(e) => onDateToChange(e.target.value)}
               />
             </>
           )}
+          {periodField && (
+            <span className="text-2xs text-ink-subtle">
+              by <span className="font-medium text-ink-muted">{periodField.replace(/_/g, ' ')}</span>
+            </span>
+          )}
         </>
       )}
-      {extraFilters.map((filter) => (
-        <div key={filter.key} className="w-[180px]">
-          <Select
-            size="sm"
-            aria-label={filter.label}
-            options={[{ value: 'all', label: filter.label }, ...filter.options.map((option) => ({ value: option, label: option }))]}
-            value={filters.extra[filter.key] ?? 'all'}
-            onChange={(e) => onExtraChange(filter.key, e.target.value)}
-          />
-        </div>
-      ))}
-      <Button theme="default" variant="outline" size="sm" onClick={onReset}>
+
+      {ownFilters.map((filter) => {
+        const value = values[filter.key] ?? ''
+
+        if (filter.type === 'search') {
+          return (
+            <div key={filter.key} className="w-[200px]">
+              <Input
+                size="sm"
+                aria-label={filter.label}
+                placeholder={filter.placeholder ?? filter.label}
+                value={value}
+                onChange={(e) => onFilterChange(filter.key, e.target.value)}
+              />
+            </div>
+          )
+        }
+
+        /* A boolean filter is a three-way: unset, yes, no — unset must stay
+           reachable, so it is a select rather than a checkbox. */
+        const options: SelectOption[] =
+          filter.type === 'boolean'
+            ? [
+                { value: '', label: filter.placeholder ?? `All ${filter.label.toLowerCase()}` },
+                { value: 'true', label: 'Yes' },
+                { value: 'false', label: 'No' },
+              ]
+            : (filter.optionsSource ? (fetchedOptions[filter.optionsSource] ?? filter.options) : filter.options).map(
+                (o) => ({ value: o.value, label: o.label }),
+              )
+
+        return (
+          <div key={filter.key} className="w-[170px]">
+            <Select
+              size="sm"
+              aria-label={filter.label}
+              title={filter.helpText ?? undefined}
+              options={options}
+              value={value}
+              onChange={(e) => onFilterChange(filter.key, e.target.value)}
+            />
+          </div>
+        )
+      })}
+
+      <Button size="sm" variant="ghost" onClick={onReset}>
         Reset
       </Button>
     </div>

@@ -110,6 +110,22 @@ export const PERMISSIONS = {
    */
   manageDevotees: 'rbac.manage_devotees',
   /**
+   * App > Media. Note App Manager is a **full writer** here, unlike on the
+   * Agent code screen where they are read-only — Media is their screen. Gate on
+   * these rather than on a role name.
+   */
+  viewSong: 'song.view_song',
+  addSong: 'song.add_song',
+  changeSong: 'song.change_song',
+  deleteSong: 'song.delete_song',
+  /**
+   * Reports. Reading opens the screen; exporting is separate — Reports Manager
+   * holds both, Store Staff neither. Each individual report additionally needs
+   * whatever it reads, which the catalogue resolves server-side.
+   */
+  viewReports: 'rbac.view_reports',
+  exportReports: 'rbac.export_reports',
+  /**
    * Agent codes. Reading is deliberately wide — Counter Staff has to look a
    * code up while settling a booking — so only the three writes are gated.
    */

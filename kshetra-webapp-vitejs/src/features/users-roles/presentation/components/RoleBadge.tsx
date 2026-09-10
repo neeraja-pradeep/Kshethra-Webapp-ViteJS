@@ -19,7 +19,12 @@ export function RoleBadge({ name, label, variant = 'custom' }: RoleBadgeProps) {
   )
 }
 
-/** The base-role pill, labelled from the server's `base_role` value. */
-export function BaseRoleBadge({ baseRole }: { baseRole: string }) {
-  return <RoleBadge name={baseRole} label={baseRoleLabel(baseRole)} variant="base" />
+/**
+ * The base-role pill, labelled by the server.
+ *
+ * `label` is the row's own `baseRoleLabel`; passing it keeps this pill reading
+ * exactly what the API calls the role, rather than a name the client derived.
+ */
+export function BaseRoleBadge({ baseRole, label }: { baseRole: string; label?: string }) {
+  return <RoleBadge name={baseRole} label={baseRoleLabel(baseRole, label)} variant="base" />
 }

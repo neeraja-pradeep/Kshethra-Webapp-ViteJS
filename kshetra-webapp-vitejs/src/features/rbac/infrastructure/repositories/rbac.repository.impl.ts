@@ -29,7 +29,6 @@ import { toAssignableBaseRoles } from '@/features/rbac/infrastructure/data-sourc
 import {
   toGodOption,
   toPoojariGods,
-  toPoojariGodsFromWrite,
 } from '@/features/rbac/infrastructure/data-sources/remote/poojariGod.response'
 import {
   getGodOptions,
@@ -270,18 +269,13 @@ export const rbacRepository: RbacRepository = {
   },
 
   /**
-   * The write answers with the new list but no `poojari` block, so the caller's
-   * own record of who it acted on carries the identity across — a second GET
-   * would only re-read what the caller already knows.
+   * The write echoes the read's envelope, poojari block included, so its answer
+   * maps exactly like a fetch — no second GET, and nothing for the caller to
+   * carry across.
    */
-  async setPoojariGods(
-    userId: number,
-    godIds: readonly number[],
-    poojariName = '',
-  ): Promise<Result<PoojariGods>> {
+  async setPoojariGods(userId: number, godIds: readonly number[]): Promise<Result<PoojariGods>> {
     try {
-      const written = await putPoojariGods(userId, godIds)
-      return ok(toPoojariGodsFromWrite(written, { poojariId: userId, poojariName, assignments: [] }))
+      return ok(toPoojariGods(await putPoojariGods(userId, godIds)))
     } catch (error) {
       return err(mapHttpError(error))
     }
