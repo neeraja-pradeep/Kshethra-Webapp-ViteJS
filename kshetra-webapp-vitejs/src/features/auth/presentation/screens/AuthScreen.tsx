@@ -87,10 +87,18 @@ export function AuthScreen() {
     }
   }, [])
 
-  // Every successful action eventually lands the operator in the console.
+  /**
+   * Every successful action eventually lands the operator in the console.
+   *
+   * Deliberately `/` and not `/dashboard`: the dashboard is gated like every
+   * other module, so sending everyone there dropped counter staff, store staff
+   * and anyone else without `view_admin_dashboard` straight onto `/no-access`
+   * the moment they signed in. `/` is `LandingRedirect`, which resolves each
+   * user's first reachable module.
+   */
   useEffect(() => {
     if (status !== 'success') return
-    redirectTimeout.current = setTimeout(() => navigate('/dashboard'), 900)
+    redirectTimeout.current = setTimeout(() => navigate('/', { replace: true }), 900)
     return () => clearTimeout(redirectTimeout.current)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status])

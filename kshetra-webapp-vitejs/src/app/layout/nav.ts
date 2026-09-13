@@ -45,7 +45,10 @@ export const NAV: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: 'squares-four', path: '/dashboard', desc: 'Operational snapshot.', roles: ['Admin', 'Manager'], permissions: [PERMISSIONS.viewAdminDashboard], group: 0 },
 
   { id: 'counter', label: 'Counter Bookings', icon: 'receipt', path: '/counter', desc: 'Walk-in counter sales and receipts.', roles: ['Admin', 'Manager', 'Counter staff'], permissions: [PERMISSIONS.operateCounter], group: 1 },
-  { id: 'pooja-bookings', label: 'Pooja Bookings', icon: 'calendar-check', path: '/pooja-bookings', desc: 'Execution view — poojas to perform, by date.', roles: ['Admin', 'Manager'], group: 1 },
+  /* Same gate as Pooja Orders: both read the same booking tables, and this one
+     was previously ungated — which made it the accidental landing page for
+     anyone whose own modules sit lower in this list. */
+  { id: 'pooja-bookings', label: 'Pooja Bookings', icon: 'calendar-check', path: '/pooja-bookings', desc: 'Execution view — poojas to perform, by date.', roles: ['Admin', 'Manager'], permissions: [PERMISSIONS.managePoojaOrders], group: 1 },
   { id: 'pooja-orders', label: 'Pooja Orders', icon: 'currency-inr', path: '/pooja-orders', desc: 'Transaction view — orders, payments, refunds.', roles: ['Admin', 'Manager'], permissions: [PERMISSIONS.managePoojaOrders], group: 1 },
   {
     id: 'store', label: 'Store', icon: 'shopping-bag', desc: 'Orders, products, categories, and inventory.', roles: ['Admin', 'Manager', 'Store staff'], group: 1,
@@ -69,13 +72,13 @@ export const NAV: NavItem[] = [
     children: [
       { id: 'devotees', label: 'Devotees', icon: 'users-three', path: '/devotees', desc: 'App user accounts and booking history.', roles: ['Admin', 'Manager'], permissions: [PERMISSIONS.viewDevotees, PERMISSIONS.viewCustomuser, PERMISSIONS.viewUserlist, PERMISSIONS.viewUserattribute] },
       { id: 'notifications', label: 'Notifications', icon: 'megaphone', path: '/notifications', desc: 'Broadcast messages to app users.', roles: ['Admin', 'Manager'], permissions: [PERMISSIONS.manageNotifications] },
-      { id: 'media', label: 'Media', icon: 'music-notes', path: '/media', desc: 'Audio tracks and cover art for the app.', roles: ['Admin', 'Manager'] },
+      { id: 'media', label: 'Media', icon: 'music-notes', path: '/media', desc: 'Audio tracks and cover art for the app.', roles: ['Admin', 'Manager'], permissions: [PERMISSIONS.viewSong] },
       { id: 'temple-location', label: 'Temple location', icon: 'map-pin', path: '/temple-location', desc: 'Where poojaris may mark attendance from.', roles: ['Admin', 'Manager'], permissions: [PERMISSIONS.viewTempleLocation] },
     ],
   },
 
-  { id: 'agent-code', label: 'Agent code', icon: 'identification-badge', path: '/agent-codes', desc: 'Booking-agent codes and attribution.', roles: ['Admin', 'Manager'], group: 4 },
-  { id: 'reports', label: 'Reports', icon: 'chart-bar', path: '/reports', desc: 'Financial reconciliation and reports.', roles: ['Admin', 'Manager'], group: 4 },
+  { id: 'agent-code', label: 'Agent code', icon: 'identification-badge', path: '/agent-codes', desc: 'Booking-agent codes and attribution.', roles: ['Admin', 'Manager'], permissions: [PERMISSIONS.viewAgentCode], group: 4 },
+  { id: 'reports', label: 'Reports', icon: 'chart-bar', path: '/reports', desc: 'Financial reconciliation and reports.', roles: ['Admin', 'Manager'], permissions: [PERMISSIONS.viewReports], group: 4 },
   { id: 'users-roles', label: 'Users & Roles', icon: 'users-three', path: '/users-roles', desc: 'Employee and login registry.', roles: ['Admin'], permissions: [PERMISSIONS.assignRoles, PERMISSIONS.viewCustomuser], group: 4 },
 ]
 
@@ -130,12 +133,33 @@ export function permissionsForPath(path: string): readonly string[] {
   return []
 }
 
-/** Where to send someone after sign-in: their first reachable destination. */
+/**
+ * Where to send someone after sign-in: their first reachable destination.
+ *
+ * A destination the user was *specifically* granted is preferred over one that
+ * merely has no gate. `/poojas` and `/gods` read the shared catalogue endpoints
+ * and so are open to everybody — without this, they would become the landing
+ * page for every role whose own modules sit lower in the rail, which is how a
+ * reports manager ended up looking at the pooja catalogue on sign-in.
+ *
+ * Within each tier the rail's own order decides, so the landing page stays
+ * predictable rather than depending on which permission happens to be listed
+ * first.
+ */
 export function firstVisiblePath(can: (permission: string) => boolean): string | null {
+  let ungatedFallback: string | null = null
+
   for (const item of visibleNav(can)) {
-    if (item.path) return item.path
-    const child = item.children?.[0]
-    if (child) return child.path
+    const candidates: NavLeaf[] | NavItem[] = item.path ? [item] : (item.children ?? [])
+    for (const candidate of candidates) {
+      const path = candidate.path
+      if (!path) continue
+      // The full gate, group inheritance included — the same lookup the router
+      // applies, so a landing page can never be one the route would refuse.
+      if (permissionsForPath(path).length > 0) return path
+      ungatedFallback ??= path
+    }
   }
-  return null
+
+  return ungatedFallback
 }
