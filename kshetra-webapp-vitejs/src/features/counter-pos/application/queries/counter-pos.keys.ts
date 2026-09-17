@@ -13,7 +13,8 @@ export const counterKeys = {
   poojas: (search = '', godId: number | null = null) =>
     [...counterKeys.all, 'poojas', search, godId] as const,
   gods: () => [...counterKeys.all, 'gods'] as const,
-  nakshatrams: () => [...counterKeys.all, 'nakshatrams'] as const,
+  /** Keyed by search so each term caches separately, like `poojas`. */
+  nakshatrams: (search = '') => [...counterKeys.all, 'nakshatrams', search] as const,
 
   summaries: () => [...counterKeys.all, 'collection-summary'] as const,
   summary: (date: string) => [...counterKeys.summaries(), date] as const,

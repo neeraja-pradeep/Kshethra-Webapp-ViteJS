@@ -1,6 +1,7 @@
 import { cn } from '@/shared/lib/cn'
 import { formatINR } from '@/shared/lib/format'
 import { Button, Icon } from '@/shared/ui'
+import { PAPER_SIZES, usePaperSize } from '@/shared/hooks/usePaperSize'
 
 import { paymentMethodLabel } from '@/features/counter-pos/domain/entities/payment'
 import type { ReceiptPage } from '@/features/counter-pos/presentation/lib/receipt'
@@ -15,17 +16,28 @@ export interface ReceiptProps {
   onPrint: () => void
 }
 
-/** A5 pooja receipt — one printable page per god, with hairline rules throughout. */
+/**
+ * The pooja receipt — one printable page per god, with hairline rules throughout.
+ *
+ * On screen the pages stack in a scroller anchored to the **top** of the
+ * overlay. Centring them instead pushed the head of a tall receipt above the
+ * viewport, where no amount of scrolling reached it.
+ *
+ * On paper `ks-print-page` takes over from the fixed 462px card: the sheet
+ * chooses the width, so the same markup prints correctly on A4 and A5.
+ */
 export function Receipt({ open, pages, closeLabel, onClose, onPrint }: ReceiptProps) {
+  const { paper, setPaper } = usePaperSize()
+
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center overflow-auto bg-overlay p-6 [backdrop-filter:blur(2px)] print:static print:bg-transparent print:p-0 print:[backdrop-filter:none]">
-      <div className="ks-print-region mx-auto flex flex-col items-center gap-4">
+    <div className="fixed inset-0 z-[120] overflow-y-auto overscroll-contain bg-overlay p-6 [backdrop-filter:blur(2px)] print:static print:overflow-visible print:bg-transparent print:p-0 print:[backdrop-filter:none]">
+      <div className="ks-print-region mx-auto flex w-fit flex-col items-center gap-4">
         {pages.map((pg) => (
           <div
             key={pg.god}
-            className="flex min-h-[652px] w-[462px] flex-col rounded-xl bg-card px-8.5 py-8 shadow-xl print:m-0 print:break-inside-avoid print:shadow-none"
+            className="ks-print-page flex min-h-[652px] w-[462px] flex-col rounded-xl bg-card px-8.5 py-8 shadow-xl"
           >
             <div className="pb-3 text-center">
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-xl font-black leading-none text-primary-contrast">
@@ -63,7 +75,7 @@ export function Receipt({ open, pages, closeLabel, onClose, onPrint }: ReceiptPr
               <span className="text-right">Amount</span>
             </div>
             {pg.rows.map((r) => (
-              <div key={r.sl} className={cn('grid', COLS, 'items-baseline gap-1.5 border-b border-stroke-subtle py-1.75 text-xs text-ink')}>
+              <div key={r.sl} className={cn('ks-print-row grid', COLS, 'items-baseline gap-1.5 border-b border-stroke-subtle py-1.75 text-xs text-ink')}>
                 <span className="tabular-nums text-ink-subtle">{r.sl}</span>
                 <span className="font-medium text-ink-strong">{r.name}</span>
                 <span>{r.nakshatra}</span>
@@ -73,14 +85,14 @@ export function Receipt({ open, pages, closeLabel, onClose, onPrint }: ReceiptPr
               </div>
             ))}
 
-            <div className="flex items-baseline justify-end gap-3.5 py-2.5">
+            <div className="ks-print-row flex items-baseline justify-end gap-3.5 py-2.5">
               <span className="text-sm font-semibold text-ink-strong">Total</span>
               <span className="text-xl font-bold tabular-nums text-ink-strong">{formatINR(pg.total)}</span>
             </div>
 
-            <div className="flex-1" />
+            <div className="flex-1 print:hidden" />
 
-            <div className="flex flex-col gap-1.5 pt-2.5">
+            <div className="ks-print-row flex flex-col gap-1.5 pt-2.5">
               <span className="text-2xs font-semibold uppercase tracking-wide text-ink-subtle">Remarks</span>
               <div className="min-h-[92px] rounded-md border border-stroke-strong px-3 py-2.25 text-xs leading-normal text-ink">{pg.remarks}</div>
             </div>
@@ -91,7 +103,21 @@ export function Receipt({ open, pages, closeLabel, onClose, onPrint }: ReceiptPr
           </div>
         ))}
 
-        <div className="flex gap-2.5 pb-2 print:hidden">
+        <div className="flex items-center gap-2.5 pb-2 print:hidden">
+          <div className="flex items-center gap-1.5 rounded-md bg-card p-1 shadow-xl">
+            <span className="pl-1.5 text-2xs font-semibold uppercase tracking-wide text-ink-subtle">Paper</span>
+            {PAPER_SIZES.map((size) => (
+              <Button
+                key={size}
+                size="sm"
+                theme={paper === size ? 'primary' : 'default'}
+                variant={paper === size ? 'solid' : 'ghost'}
+                onClick={() => setPaper(size)}
+              >
+                {size}
+              </Button>
+            ))}
+          </div>
           <Button theme="default" variant="outline" onClick={onClose}>
             {closeLabel}
           </Button>

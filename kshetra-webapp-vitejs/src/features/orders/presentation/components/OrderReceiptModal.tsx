@@ -39,8 +39,8 @@ export function OrderReceiptModal({ open, receipt, loading, errorMessage, onClos
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center overflow-auto bg-overlay p-6 [backdrop-filter:blur(2px)] print:static print:bg-transparent print:p-0 print:[backdrop-filter:none]">
-      <div className="mx-auto flex flex-col items-center gap-4">
+    <div className="fixed inset-0 z-[120] overflow-y-auto overscroll-contain bg-overlay p-6 [backdrop-filter:blur(2px)] print:static print:overflow-visible print:bg-transparent print:p-0 print:[backdrop-filter:none]">
+      <div className="mx-auto flex w-fit flex-col items-center gap-4">
         {errorMessage && (
           <div className="w-[462px] print:hidden">
             <Alert type="danger">{errorMessage}</Alert>
@@ -56,7 +56,7 @@ export function OrderReceiptModal({ open, receipt, loading, errorMessage, onClos
 
         {receipt && (
           <div className="ks-print-region flex flex-col items-center">
-            <div className="flex min-h-[652px] w-[462px] flex-col rounded-xl bg-card px-8.5 py-8 shadow-xl print:m-0 print:break-inside-avoid print:shadow-none">
+            <div className="ks-print-page flex min-h-[652px] w-[462px] flex-col rounded-xl bg-card px-8.5 py-8 shadow-xl">
               <div className="pb-3 text-center">
                 <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-xl font-black leading-none text-primary-contrast">
                   क

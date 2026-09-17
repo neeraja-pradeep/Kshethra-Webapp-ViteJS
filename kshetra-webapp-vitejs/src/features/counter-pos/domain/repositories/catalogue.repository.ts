@@ -13,5 +13,10 @@ export interface CatalogueRepository {
    */
   fetchPoojas(search?: string, godId?: number): Promise<Result<readonly Pooja[]>>
   fetchGods(): Promise<Result<readonly God[]>>
-  fetchNakshatrams(): Promise<Result<readonly Nakshatra[]>>
+  /**
+   * `search` is applied by the server: the names are Malayalam and the counter
+   * types English, and only the server carries the romanized key that bridges
+   * the two.
+   */
+  fetchNakshatrams(search?: string): Promise<Result<readonly Nakshatra[]>>
 }

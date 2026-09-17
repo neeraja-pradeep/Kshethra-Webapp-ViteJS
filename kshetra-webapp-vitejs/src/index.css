@@ -67,31 +67,78 @@
 /* Print isolation — when a printable region is present (e.g. a counter
    receipt), print ONLY that region and drop the app shell + browser chrome.
    Mark the printable node with `ks-print-region`; hide print-only-noise with
-   `ks-print-hide`. */
+   `ks-print-hide`.
+
+   The region is *pulled out* of the app shell rather than hidden in place:
+   every ancestor is stripped back to a plain block and every sibling is
+   `display: none`. It used to be `visibility: hidden` + an absolutely
+   positioned region, which printed only the first sheet — an out-of-flow box
+   does not paginate — and left the app shell's collapsed columns as dead
+   margin down the left of the paper.
+
+   Paper size comes from `--ks-paper` on `<html>` (see `usePaperSize`), so the
+   sheet matches the receipt the operator is about to print instead of
+   defaulting to A4 with an A5-sized card adrift on it. */
 @media print {
   @page {
-    margin: 12mm;
+    size: var(--ks-paper, A4) portrait;
+    margin: var(--ks-paper-margin, 10mm);
   }
   html,
   body {
     height: auto !important;
     background: #fff !important;
   }
-  /* Hide everything, then reveal just the print region and its descendants. */
-  body:has(.ks-print-region) * {
-    visibility: hidden !important;
+
+  /* Every sibling of the region's ancestor chain disappears… */
+  body:has(.ks-print-region) :not(:has(.ks-print-region)):not(.ks-print-region):not(.ks-print-region *) {
+    display: none !important;
   }
-  body:has(.ks-print-region) .ks-print-region,
-  body:has(.ks-print-region) .ks-print-region * {
-    visibility: visible !important;
+  /* …and the chain itself collapses to plain blocks so the region sits at the
+     top-left of the sheet and breaks across pages naturally. */
+  body:has(.ks-print-region),
+  body:has(.ks-print-region) :has(.ks-print-region) {
+    display: block !important;
+    position: static !important;
+    overflow: visible !important;
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    transform: none !important;
   }
   body:has(.ks-print-region) .ks-print-region {
-    position: absolute !important;
-    left: 0;
-    top: 0;
-    width: 100%;
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
   .ks-print-hide {
     display: none !important;
+  }
+
+  /* Each receipt fills the sheet's width and starts on its own page. Sized in
+     `%` of the printable area, so one card works on A4 and A5 alike. */
+  .ks-print-page {
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    break-inside: auto;
+    break-after: page;
+  }
+  .ks-print-page:last-of-type {
+    break-after: auto;
+  }
+  /* Rows must not be split in half across a page boundary. */
+  .ks-print-row {
+    break-inside: avoid;
   }
 }

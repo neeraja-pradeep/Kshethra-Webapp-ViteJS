@@ -50,10 +50,23 @@ export function useGodsQuery() {
   })
 }
 
-export function useNakshatramsQuery() {
+/**
+ * The nakshatras, narrowed by the server when the operator types.
+ *
+ * Searching server-side is not an optimisation here but the only thing that
+ * works: the names are Malayalam and the box is typed in English, and the
+ * endpoint matches a romanized key so "bharani" finds ഭരണി.
+ *
+ * `keepPreviousData` holds the previous matches on screen between keystrokes,
+ * so the list never blinks empty while somebody is waiting at the counter.
+ *
+ * Pass a **debounced** term — this fires one request per distinct value.
+ */
+export function useNakshatramsQuery(search?: string) {
   return useQuery({
-    queryKey: counterKeys.nakshatrams(),
-    queryFn: async () => unwrap(await fetchNakshatrams()),
+    queryKey: counterKeys.nakshatrams(search),
+    queryFn: async () => unwrap(await fetchNakshatrams(search)),
     staleTime: CATALOGUE_STALE_TIME_MS,
+    placeholderData: keepPreviousData,
   })
 }

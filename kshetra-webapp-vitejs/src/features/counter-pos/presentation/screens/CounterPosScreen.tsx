@@ -84,6 +84,8 @@ export function CounterPosScreen() {
   const [bookingSeq, setBookingSeq] = useState(1)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [nakshatraSearch, setNakshatraSearch] = useState('')
+  const [debouncedNakshatraSearch, setDebouncedNakshatraSearch] = useState('')
   const [browseOpen, setBrowseOpen] = useState(false)
   const [browseGodId, setBrowseGodId] = useState<number | null>(null)
   const [config, setConfig] = useState<ConfigState | null>(null)
@@ -104,11 +106,20 @@ export function CounterPosScreen() {
   // Both catalogue and payments search server-side, so each waits on its own
   // debounced term — hence declared here rather than with the other queries.
   const poojasQuery = usePoojasQuery(debouncedSearch || undefined, browseGodId)
+  // The picker's own list. Separate from `nakshatramsQuery` on purpose: that one
+  // stays unfiltered so `nakshatraNameOf` can still name a star the operator
+  // picked under an earlier term — a narrowed list would print a blank
+  // nakshatra on the receipt for anyone chosen by searching.
+  const nakshatraResultsQuery = useNakshatramsQuery(debouncedNakshatraSearch || undefined)
   const agentBookingsQuery = useAgentBookingsQuery({ search: cpDebouncedSearch || undefined, enabled: cpOpen })
 
   const gods = useMemo(() => godsQuery.data ?? [], [godsQuery.data])
   const poojas = useMemo(() => poojasQuery.data ?? [], [poojasQuery.data])
   const nakshatrams = useMemo(() => nakshatramsQuery.data ?? [], [nakshatramsQuery.data])
+  const nakshatraResults = useMemo(
+    () => nakshatraResultsQuery.data ?? nakshatrams,
+    [nakshatraResultsQuery.data, nakshatrams],
+  )
 
   const godNameOf = useMemo(() => {
     const names = new Map(gods.map((god) => [god.id, god.name]))
@@ -195,6 +206,12 @@ export function CounterPosScreen() {
     const id = setTimeout(() => setCpDebouncedSearch(cpSearch), SEARCH_DEBOUNCE_MS)
     return () => clearTimeout(id)
   }, [cpSearch])
+
+  // Same for the nakshatra picker — the server is what matches "bharani" to ഭരണി.
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedNakshatraSearch(nakshatraSearch.trim()), SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(id)
+  }, [nakshatraSearch])
 
   useEffect(() => {
     if (!toast) return
@@ -483,7 +500,10 @@ export function CounterPosScreen() {
           <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3.5 md:overflow-y-auto md:pb-1">
             <PeoplePanel
               people={people}
-              nakshatraOptions={nakshatrams.map((n) => ({ value: String(n.id), label: n.name }))}
+              nakshatraOptions={nakshatraResults.map((n) => ({ value: String(n.id), label: n.name }))}
+              nakshatraSearch={nakshatraSearch}
+              onNakshatraSearchChange={setNakshatraSearch}
+              nakshatraLoading={nakshatraResultsQuery.isFetching}
               onNameChange={setPersonName}
               onNakshatraChange={setPersonNakshatram}
               onRemove={removePerson}

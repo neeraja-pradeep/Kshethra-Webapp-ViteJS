@@ -18,7 +18,7 @@ export interface CounterPaymentsReceiptProps {
 export function CounterPaymentsReceipt({ booking, receipt, templeName, onDone, onPrint }: CounterPaymentsReceiptProps) {
   return (
     <div className="ks-print-region flex min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto px-5.5 py-4.5">
-      <div className="flex w-[330px] flex-col rounded-xl bg-card px-6 py-5.5 shadow-xs print:shadow-none">
+      <div className="ks-print-page flex w-[330px] flex-col rounded-xl bg-card px-6 py-5.5 shadow-xs">
         <div className="border-b border-dashed border-stroke-strong pb-3 text-center">
           <span className="inline-flex h-9.5 w-9.5 items-center justify-center rounded-lg bg-primary text-2xl font-black leading-none text-primary-contrast">
             क

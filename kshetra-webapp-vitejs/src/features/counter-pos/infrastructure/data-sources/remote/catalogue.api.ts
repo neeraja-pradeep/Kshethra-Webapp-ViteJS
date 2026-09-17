@@ -52,7 +52,20 @@ export async function getGods(): Promise<readonly GodResponseDto[]> {
   return countedList(godResponseSchema).parse(response.data).results
 }
 
-export async function getNakshatrams(): Promise<readonly NakshatramResponseDto[]> {
-  const response = await http.get(CATALOGUE_ENDPOINTS.nakshatrams, { params: { page_size: NAKSHATRAM_PAGE_SIZE } })
+/**
+ * The nakshatras, optionally narrowed by the server.
+ *
+ * `search` has to be the server's job here: the star names are stored in
+ * Malayalam ("ഭരണി") and the counter types English, and the endpoint widens the
+ * match with a romanized key so "bharani" lands on that row. No `includes()`
+ * over the loaded Malayalam labels could match an English term.
+ */
+export async function getNakshatrams(search?: string): Promise<readonly NakshatramResponseDto[]> {
+  const response = await http.get(CATALOGUE_ENDPOINTS.nakshatrams, {
+    params: {
+      page_size: NAKSHATRAM_PAGE_SIZE,
+      ...(search ? { search } : {}),
+    },
+  })
   return paginated(nakshatramResponseSchema).parse(response.data).results
 }

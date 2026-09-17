@@ -33,9 +33,9 @@ export const catalogueRepository: CatalogueRepository = {
     }
   },
 
-  async fetchNakshatrams(): Promise<Result<readonly Nakshatra[]>> {
+  async fetchNakshatrams(search?: string): Promise<Result<readonly Nakshatra[]>> {
     try {
-      return ok((await getNakshatrams()).map(toNakshatra))
+      return ok((await getNakshatrams(search)).map(toNakshatra))
     } catch (error) {
       return err(mapHttpError(error))
     }

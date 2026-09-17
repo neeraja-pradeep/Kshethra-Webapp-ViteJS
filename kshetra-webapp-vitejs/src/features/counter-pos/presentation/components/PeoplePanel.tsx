@@ -1,4 +1,6 @@
-import { Icon, Input, Select } from '@/shared/ui'
+import { useState } from 'react'
+
+import { Icon, Input, SearchSelect } from '@/shared/ui'
 import type { SelectOption } from '@/shared/ui'
 
 import type { BookingPerson } from '@/features/counter-pos/domain/entities/booking'
@@ -9,13 +11,38 @@ export interface PeoplePanelProps {
   onNameChange: (id: string, value: string) => void
   /** `value` is the nakshatram id as a string, or '' for none. */
   onNakshatraChange: (id: string, value: string) => void
+  /** The nakshatra term as typed. Empty unless a picker is open. */
+  nakshatraSearch: string
+  onNakshatraSearchChange: (search: string) => void
+  /** True while the server is answering a new nakshatra term. */
+  nakshatraLoading?: boolean
   onRemove: (id: string) => void
   onAddPerson: () => void
 }
 
 /** The current booking's roster — devotee + family members, this booking only. */
-export function PeoplePanel({ people, nakshatraOptions, onNameChange, onNakshatraChange, onRemove, onAddPerson }: PeoplePanelProps) {
+export function PeoplePanel({
+  people,
+  nakshatraOptions,
+  onNameChange,
+  onNakshatraChange,
+  nakshatraSearch,
+  onNakshatraSearchChange,
+  nakshatraLoading = false,
+  onRemove,
+  onAddPerson,
+}: PeoplePanelProps) {
   const namedCount = people.filter((p) => p.name.trim()).length
+  // Only one picker is open at a time, so the rows share one search term — but
+  // the term belongs to whichever row is using it. Without that ownership, a
+  // term typed for the devotee would still be narrowing the family member's
+  // list when it opened, hiding stars that were never searched for.
+  const [searchOwner, setSearchOwner] = useState<string | null>(null)
+
+  function beginSearch(personId: string, term: string) {
+    setSearchOwner(personId)
+    onNakshatraSearchChange(term)
+  }
 
   return (
     <div className="flex flex-shrink-0 flex-col overflow-hidden rounded-2xl bg-card shadow-sm">
@@ -41,11 +68,16 @@ export function PeoplePanel({ people, nakshatraOptions, onNameChange, onNakshatr
               value={p.name}
               onChange={(e) => onNameChange(p.id, e.target.value)}
             />
-            <Select
+            <SearchSelect
               size="sm"
-              options={[{ value: '', label: 'Nakshatra' }, ...nakshatraOptions]}
+              placeholder="Nakshatra"
+              options={nakshatraOptions}
               value={p.nakshatramId === null ? '' : String(p.nakshatramId)}
-              onChange={(e) => onNakshatraChange(p.id, e.target.value)}
+              onChange={(value) => onNakshatraChange(p.id, value)}
+              search={searchOwner === p.id ? nakshatraSearch : ''}
+              onSearchChange={(term) => beginSearch(p.id, term)}
+              loading={nakshatraLoading && searchOwner === p.id}
+              emptyLabel="No nakshatra found"
             />
             {people.length > 1 ? (
               <button
