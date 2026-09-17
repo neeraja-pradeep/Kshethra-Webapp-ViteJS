@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 
+import { useMyPermissionsQuery } from '@/features/auth/application/queries/useMyPermissionsQuery'
 import { useCan } from '@/features/auth/application/hooks/useCan'
 import { cn } from '@/shared/lib/cn'
 import { Icon } from '@/shared/ui'
@@ -20,10 +21,14 @@ function isGroupActive(item: NavItem, pathname: string): boolean {
 export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
   const { pathname } = useLocation()
   const can = useCan()
+  const { data: session } = useMyPermissionsQuery()
 
   // Shared with the router's landing redirect, so the rail and the routes can
-  // never disagree about which modules this user has.
-  const visibleNav = useMemo(() => selectVisibleNav(can), [can])
+  // never disagree about which modules this user has. The base role is passed
+  // because some roles are granted more than they should see — a counter
+  // operator reads the pooja catalogue to price a booking without the module
+  // being theirs.
+  const visibleNav = useMemo(() => selectVisibleNav(can, session?.baseRole), [can, session?.baseRole])
 
   const [open, setOpen] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {}

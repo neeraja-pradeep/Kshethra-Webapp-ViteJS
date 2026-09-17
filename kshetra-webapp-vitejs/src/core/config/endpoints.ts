@@ -230,3 +230,29 @@ export const STORE_ENDPOINTS = {
   /** How a multi-variant product is managed — the flat view never writes variants. */
   productVariants: '/ecommerce/product-variant/',
 } as const
+
+/**
+ * The Clozr inbound webhook that turns a Tech support report into a ticket.
+ *
+ * Not relative to the app's own `http` client's baseURL like everything above
+ * — this is a different service, reached directly from the browser, so the
+ * host (`env.clozrWebhookBaseUrl`) is applied at the call site.
+ *
+ * The key is `CLOZR_ISSUE_KEY` from the environment rather than a literal:
+ * dev, staging and production each post to their own inbox, and a hardcoded
+ * key silently files every environment's reports into one of them.
+ */
+export function clozrWebhookPath(issueKey: string): string {
+  return `/webhooks/issues/${issueKey}/`
+}
+
+/**
+ * The attachment upload route for the same key (§3).
+ *
+ * Only reachable when the key has `attachments_enabled: true`; otherwise it
+ * answers `404 key_not_found`, deliberately indistinguishable from a
+ * nonexistent route so the feature is not advertised to a prober.
+ */
+export function clozrAttachmentPath(issueKey: string): string {
+  return `/webhooks/issues/${issueKey}/attachments/`
+}

@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { firstVisiblePath } from '@/app/layout/nav'
 import { PERMISSIONS } from '@/features/auth/application/hooks/permissions'
 import { useCan } from '@/features/auth/application/hooks/useCan'
+import { useMyPermissionsQuery } from '@/features/auth/application/queries/useMyPermissionsQuery'
 
 /**
  * Where "/" lands, and where sign-in sends every operator.
@@ -19,6 +20,9 @@ import { useCan } from '@/features/auth/application/hooks/useCan'
  */
 export function LandingRedirect() {
   const can = useCan()
+  const { data: session } = useMyPermissionsQuery()
   if (!can(PERMISSIONS.accessAdminPortal)) return <Navigate to="/no-access" replace />
-  return <Navigate to={firstVisiblePath(can) ?? '/no-access'} replace />
+  // Restricted roles land inside their own allowlist, so a reports manager
+  // opens on Reports rather than on whichever granted module sits highest.
+  return <Navigate to={firstVisiblePath(can, session?.baseRole) ?? '/no-access'} replace />
 }

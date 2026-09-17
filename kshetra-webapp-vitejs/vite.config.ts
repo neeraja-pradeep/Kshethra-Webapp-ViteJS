@@ -17,11 +17,24 @@ const DEFAULT_API_TARGET = 'http://127.0.0.1:8010'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
+  // Empty prefix: loads every variable, not only `VITE_*`, so unprefixed names
+  // like `CLOZR_ISSUE_KEY` are readable here in Node.
   const env = loadEnv(mode, process.cwd(), '')
   const apiTarget = env.VITE_API_PROXY_TARGET || DEFAULT_API_TARGET
 
   return {
     plugins: [react()],
+    /**
+     * `CLOZR_ISSUE_KEY` has no `VITE_` prefix, so Vite does not put it on
+     * `import.meta.env` and browser code cannot see it. It is not a secret —
+     * the webhook authenticates by Origin allowlist, and this key is the
+     * public path segment of the endpoint every submission posts to — so
+     * handing it to the client is safe, and `define` is how an unprefixed
+     * name gets there. Inlined at build time like any other constant.
+     */
+    define: {
+      __CLOZR_ISSUE_KEY__: JSON.stringify(env.CLOZR_ISSUE_KEY ?? ''),
+    },
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 
+import { isPathAllowedForRole } from '@/app/layout/nav'
 import { toFailure } from '@/core/error/result'
 import { Spinner } from '@/shared/ui'
 
@@ -39,8 +40,12 @@ export function ProtectedRoute({ children, requires = [] }: ProtectedRouteProps)
   }
 
   // A superuser bypasses every check server-side; mirror that here.
-  const isAllowed = session.isSuperuser || requires.every((permission) => session.permissions.includes(permission))
-  if (!isAllowed) return <Navigate to="/no-access" replace />
+  const hasPermissions = session.isSuperuser || requires.every((permission) => session.permissions.includes(permission))
+  // Some roles hold permissions for modules that are not theirs to open — the
+  // same allowlist the sidebar applies, enforced here so a hidden entry is not
+  // merely an unlinked URL that still renders.
+  const isModuleAllowed = session.isSuperuser || isPathAllowedForRole(location.pathname, session.baseRole)
+  if (!hasPermissions || !isModuleAllowed) return <Navigate to="/no-access" replace />
 
   return <>{children}</>
 }

@@ -1,6 +1,8 @@
 import { PERMISSIONS } from '@/features/auth/application/hooks/permissions'
 import type { UserRole } from '@/shared/types/common'
 
+import { allowedModuleIds } from './roleModules'
+
 /** A single leaf navigation destination. */
 export interface NavLeaf {
   id: string
@@ -80,6 +82,13 @@ export const NAV: NavItem[] = [
   { id: 'agent-code', label: 'Agent code', icon: 'identification-badge', path: '/agent-codes', desc: 'Booking-agent codes and attribution.', roles: ['Admin', 'Manager'], permissions: [PERMISSIONS.viewAgentCode], group: 4 },
   { id: 'reports', label: 'Reports', icon: 'chart-bar', path: '/reports', desc: 'Financial reconciliation and reports.', roles: ['Admin', 'Manager'], permissions: [PERMISSIONS.viewReports], group: 4 },
   { id: 'users-roles', label: 'Users & Roles', icon: 'users-three', path: '/users-roles', desc: 'Employee and login registry.', roles: ['Admin'], permissions: [PERMISSIONS.assignRoles, PERMISSIONS.viewCustomuser], group: 4 },
+
+  /* Deliberately ungated: anyone who can reach the console can report that it
+     is broken. The roles most likely to hit a bug hold the fewest permissions,
+     so a gate here would silence exactly the people worth hearing from.
+     `firstVisiblePath` prefers a *granted* destination over an ungated one, so
+     sitting last and open does not make this anyone's landing page. */
+  { id: 'tech-support', label: 'Tech support', icon: 'lifebuoy', path: '/tech-support', desc: 'Report a problem with the console.', roles: ['Admin', 'Manager', 'Counter staff', 'Store staff'], group: 5 },
 ]
 
 /** True when the signed-in user holds every codename this entry declares. */
@@ -94,8 +103,11 @@ function isEntryVisible(entry: NavItem | NavLeaf, can: (permission: string) => b
  * worse than no expander. Shared by the sidebar and the post-login landing
  * redirect so the rail and the router can never disagree about what exists.
  */
-export function visibleNav(can: (permission: string) => boolean): NavItem[] {
-  return NAV.filter((item) => isEntryVisible(item, can)).flatMap<NavItem>((item) => {
+export function visibleNav(can: (permission: string) => boolean, baseRole?: string): NavItem[] {
+  const allowed = allowedModuleIds(baseRole)
+  const isAllowed = (item: NavItem) => allowed === null || allowed.includes(item.id)
+
+  return NAV.filter((item) => isAllowed(item) && isEntryVisible(item, can)).flatMap<NavItem>((item) => {
     if (!item.children) return [item]
     const children = item.children.filter((child) => isEntryVisible(child, can))
     return children.length > 0 ? [{ ...item, children }] : []
@@ -117,6 +129,34 @@ const PATH_PERMISSIONS: Readonly<Record<string, readonly string[]>> = (() => {
   }
   return map
 })()
+
+/** Path -> the id of the NAV entry that owns it. A child maps to its group. */
+const PATH_MODULE_IDS: Readonly<Record<string, string>> = (() => {
+  const map: Record<string, string> = {}
+  for (const item of NAV) {
+    if (item.path) map[item.path] = item.id
+    // A child is reached through its group, so the group's id is what the
+    // allowlist names — listing every leaf would make adding a screen to an
+    // existing module a two-file change, and the one that gets forgotten is
+    // the allowlist.
+    for (const child of item.children ?? []) map[child.path] = item.id
+  }
+  return map
+})()
+
+/**
+ * Whether this base role may reach this path at all, before permissions.
+ *
+ * An unknown path is allowed through: it is not a module route, so the
+ * permission gate is the only thing that should judge it.
+ */
+export function isPathAllowedForRole(path: string, baseRole: string | undefined): boolean {
+  const allowed = allowedModuleIds(baseRole)
+  if (allowed === null) return true
+  const moduleId = PATH_MODULE_IDS[path]
+  if (!moduleId) return true
+  return allowed.includes(moduleId)
+}
 
 /**
  * The gate a route must apply, read from the same NAV entry the sidebar reads.
@@ -146,10 +186,10 @@ export function permissionsForPath(path: string): readonly string[] {
  * predictable rather than depending on which permission happens to be listed
  * first.
  */
-export function firstVisiblePath(can: (permission: string) => boolean): string | null {
+export function firstVisiblePath(can: (permission: string) => boolean, baseRole?: string): string | null {
   let ungatedFallback: string | null = null
 
-  for (const item of visibleNav(can)) {
+  for (const item of visibleNav(can, baseRole)) {
     const candidates: NavLeaf[] | NavItem[] = item.path ? [item] : (item.children ?? [])
     for (const candidate of candidates) {
       const path = candidate.path
