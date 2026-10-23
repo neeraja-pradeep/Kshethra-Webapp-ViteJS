@@ -67,18 +67,24 @@ The `error_code` is the reliable way to tell what went wrong.
 
 | HTTP | `error_code` | Endpoint | Meaning | What the UI should do |
 |---|---|---|---|---|
-| 503 | `not_configured` | both | One of `CLOZR_WEBHOOK_BASE_URL`, `CLOZR_ISSUE_KEY`, `CLOZR_ISSUE_HMAC_SECRET` is empty on the server. Nothing was sent. | Say reporting is not set up and to contact an administrator. Don't retry. |
-| 502 | `upstream_misconfigured` | both | Clozr refused the relay's credentials or contract: 400 `invalid_payload`, 401 `invalid_signature`/`replayed_request`, 403 `origin_not_allowed`, 404 `key_not_found` (on the ticket route), or 411. This is logged at ERROR on the server. | Say reporting is misconfigured and to contact an administrator. Don't retry. |
+| 503 | `not_configured` | both | One of `CLOZR_WEBHOOK_BASE_URL`, `CLOZR_ISSUE_KEY`, `CLOZR_ISSUE_HMAC_SECRET` is empty on the server, or the base URL is not `https://` (plain `http://` is allowed only when `DEBUG` is on). Nothing was sent. | Say reporting is not set up and to contact an administrator. Don't retry. |
+| 502 | `upstream_misconfigured` | both | Clozr refused the relay's credentials or contract: 400 `invalid_payload`, 401 `invalid_signature`/`replayed_request`, 403 `origin_not_allowed`, 404 `key_not_found` (on the ticket route), 411, or any **3xx redirect** (the relay never follows redirects). This is logged at ERROR on the server. | Say reporting is misconfigured and to contact an administrator. Don't retry. |
 | 409 | `attachments_unavailable` | attachments | Clozr answered 404, which means attachments are switched off for this webhook key. | Treat as "attachments off". Send the ticket without files, and don't retry uploads. |
 | 429 | `rate_limited` | both | **Clozr** rate-limited the request. `Retry-After` is passed through from Clozr (default `60`). | Back off for `Retry-After` seconds, then retry with the **same** `X-Idempotency-Key`. |
 | 504 | `upstream_timeout` | both | Clozr did not answer in time (connect 3.05 s; read 15 s for tickets, 45 s for uploads). | Retryable. For a ticket, retry with the same idempotency key, because Clozr may have filed it already. |
 | 502 | `upstream_unavailable` | both | Clozr was unreachable, answered 5xx, or returned an unreadable 202. If Clozr sent `Retry-After` (for example on its 503), it is passed through. | Retryable later. |
-| 413 | `payload_too_large` | both | The ticket's JSON is over 32 KB once built, or the file is over `TECH_SUPPORT_MAX_ATTACHMENT_BYTES` (10 MB). This server refuses it before sending anything, and Clozr's own 413 is passed through with the same code. | Tell the user to shorten the description or pick a smaller file. |
+| 413 | `payload_too_large` | both | The ticket's JSON is over 32 KB once built, or the upload is over `TECH_SUPPORT_MAX_ATTACHMENT_BYTES` (10 MB). For uploads the cap covers the whole multipart body, so a file a few hundred bytes under 10 MB can still be refused (see the attachments section). This server refuses it before sending anything. Clozr's own 413 is passed through with this code. | Tell the user to shorten the description or pick a smaller file. |
 | 415 | `unsupported_file_type` | attachments | The file's leading bytes are not PNG, JPEG, GIF, WebP, PDF or XLSX/ZIP. SVG and every other text format are always refused. Checked here and passed through from Clozr. | Say: "Use PNG, JPG, GIF, WebP, PDF or XLSX." |
-| 415 | `unsupported_media_type` | attachments | Clozr's 415 for a non-multipart body, passed through. It should never happen through the relay. | Generic upload failure. |
+| 415 | `unsupported_media_type` | attachments | Clozr's 415 for a non-multipart body, or a Clozr 415 whose `error_code` the relay does not recognise. It should never happen through the relay. | Generic upload failure. |
 
-Clozr's 413 and 415 always keep Clozr's own `error_code`. Every other Clozr code is
-folded into the relay codes above.
+Clozr's 413 and 415 pass through only with codes Clozr documents:
+- 413: `payload_too_large`
+- 415: `unsupported_file_type` or `unsupported_media_type`
+
+A 413 or 415 carrying any other code, or no JSON at all, becomes `payload_too_large`
+for a 413 and `unsupported_media_type` for a 415. Every other Clozr status is folded
+into the relay codes above. **The `error_code` values in this table are the complete
+set the relay can return.**
 
 ---
 
@@ -96,9 +102,16 @@ this once per file, **one after another** (see Throttling).
   400: `{ "file": ["Send exactly one file, in a multipart field named 'file'."] }`.
 - Maximum size is `TECH_SUPPORT_MAX_ATTACHMENT_BYTES` (default 10 MB = 10485760
   bytes). Anything over it gets `413 payload_too_large`, and nothing is forwarded.
-  Check the size in the browser first, so the user isn't left waiting while a large
-  file uploads. nginx refuses bodies over 25 MB outright, with its own 413 HTML
-  page and no JSON.
+  The cap applies twice:
+  - to the file itself;
+  - to the multipart body the relay sends on to Clozr, which adds roughly 200 bytes
+    plus the filename. Clozr compares its cap to the request's `Content-Length`, so
+    the relay applies the same rule.
+
+  In practice, keep files at least 1 KB under 10 MB. Check the size in the browser
+  first (for example `file.size > 10 * 1024 * 1024 - 1024`), so the user isn't left
+  waiting while a large file uploads. nginx refuses bodies over 25 MB outright, with
+  its own 413 HTML page and no JSON.
 - The type is decided by the file's **magic bytes**, never by its name or the
   part's `Content-Type`:
 
@@ -174,7 +187,7 @@ Files the ticket.
 | `subject` | string | **yes** | 5–280 characters, after trimming. |
 | `description` | string | no | Free text. Blank is allowed. The whole ticket, once built, must stay under 32 KB, otherwise you get `413 payload_too_large`. |
 | `priority` | string | **yes** | Exactly one of `low`, `medium`, `high`, `critical` (lower case). The server maps it to Clozr's `Low`/`Medium`/`High`/`Critical`. |
-| `page` | string | no | The route the reporter was on, for example `location.pathname`. Up to 500 characters. |
+| `page` | string | no | The route the reporter was on, for example `location.pathname` (optionally with `location.search` and `location.hash`). Up to 500 characters. It must start with `/` and use only URL path, query and fragment characters: letters, digits and ``-._~%!$&'()*+,;=:@/?#[]``. It can't contain spaces, quotes, `<`/`>`, newlines or other control characters, so URL-encode anything else. Otherwise the request gets a DRF 400: `{ "page": ["Must be an app path starting with '/' (letters, digits and URL path characters only)."] }`. |
 | `attachment_tokens` | string[] | no | Up to **10** tokens from the attachments endpoint. Each is at most 128 characters. |
 
 Any other field is **ignored**, including `message`, `reported_for`, `customer_email`
@@ -245,7 +258,7 @@ answer `503 not_configured`.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `CLOZR_WEBHOOK_BASE_URL` | `""` | The Clozr API origin, **without** `/webhooks/...`, for example `https://api.clozr.in`. A trailing slash is fine. The relay appends `/webhooks/issues/<key>/` and `/webhooks/issues/<key>/attachments/`. |
+| `CLOZR_WEBHOOK_BASE_URL` | `""` | The Clozr API origin, **without** `/webhooks/...`, for example `https://api.clozr.in`. It **must be `https://`**. `http://` works only with `DEBUG` on (local development), and anything else gives `503 not_configured` plus a warning in the log. Point it at the final host, because redirects are not followed and a 3xx gives `502 upstream_misconfigured`. A trailing slash is fine. The relay appends `/webhooks/issues/<key>/` and `/webhooks/issues/<key>/attachments/`. |
 | `CLOZR_ISSUE_KEY` | `""` | The issue webhook key UUID. It must have **`require_hmac` on** in Clozr. Without HMAC, Clozr falls back to `Origin` checks, which a server-to-server call cannot pass, so every request would end as `502 upstream_misconfigured`. Enable `attachments_enabled` on the key if files should work. |
 | `CLOZR_ISSUE_HMAC_SECRET` | `""` | The key's HMAC secret from Clozr. It is used to sign the ticket body and the upload's canonical string. It is a secret: keep it in `.env` / the secret store only. |
 | `TECH_SUPPORT_MAX_ATTACHMENT_BYTES` | `10485760` | The per-file cap the relay enforces before forwarding. Keep it at or below the key's `max_attachment_bytes` in Clozr, which is itself capped at 10 MB. |
@@ -258,6 +271,15 @@ Logging: the `tech_support` logger records status codes, Clozr `error_code`s, th
 issue id and the user id. It never records request bodies, the key, the secret, or a
 `requests` exception message, since that message contains the URL and therefore the
 key.
+
+Sentry: the stdlib integration records every outbound HTTP call as a breadcrumb that
+includes the full URL, and that URL contains the key. `tech_support/sentry.py` is
+wired into `sentry_sdk.init` in `settings.py` as `before_breadcrumb` and at the end of
+`before_send`. It replaces any `/webhooks/issues/<key>` path segment with
+`/webhooks/issues/[redacted]` in every string of a breadcrumb or event.
+
+Uploads use the same proxy and CA-bundle environment variables as tickets
+(`HTTPS_PROXY`, `REQUESTS_CA_BUNDLE`, and so on).
 
 ---
 
