@@ -17,9 +17,11 @@ const DEFAULT_API_TARGET = 'http://127.0.0.1:8010'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
-  // Default prefix: only `VITE_*` variables are loaded. Nothing unprefixed is
-  // read here, so no server-side secret can be inlined into the bundle by
-  // accident (see scripts/check-env-hygiene.mjs, which enforces it in CI).
+  // Two-argument loadEnv and the default `envPrefix` (VITE_): only `VITE_*`
+  // variables are loaded or exposed to client code. Nothing unprefixed is read
+  // here, so no server-side secret can be inlined into the bundle by accident.
+  // scripts/check-env-hygiene.mjs fails if `envPrefix` is set to anything but
+  // VITE_ or if loadEnv gets a third (prefix) argument.
   const env = loadEnv(mode, process.cwd())
   const apiTarget = env.VITE_API_PROXY_TARGET || DEFAULT_API_TARGET
 

@@ -165,7 +165,12 @@ export function TechSupportScreen() {
 
     if (staged.length > 0) {
       setUploadingFiles(true)
-      for (const attachment of staged) patchAttachment(attachment.id, { status: 'uploading' })
+      // A retry after a failed ticket keeps files already uploaded with a token
+      // that is still redeemable; only the rest go up again.
+      const now = Date.now()
+      const reusable = (a: TicketAttachment) =>
+        a.status === 'uploaded' && !!a.token && a.expiresAt !== undefined && a.expiresAt > now
+      for (const attachment of staged) if (!reusable(attachment)) patchAttachment(attachment.id, { status: 'uploading' })
 
       // Sequential, not parallel: the relay throttles uploads per user
       // (20/min) and Clozr limits them per source IP — now the server's, so
@@ -173,6 +178,10 @@ export function TechSupportScreen() {
       // way to draw a 429 on a report that would otherwise have gone through.
       let attachmentsOff: string | null = null
       for (const attachment of staged) {
+        if (reusable(attachment) && attachment.token) {
+          tokens.push(attachment.token)
+          continue
+        }
         // `409 attachments_unavailable` is a property of the deployment, not
         // of the file: once seen, the rest would fail the same way, so they
         // are not tried and the ticket goes without them.

@@ -115,6 +115,72 @@ if (existsSync(configPath)) {
   }
 }
 
+// 4. `envPrefix` widens what Vite exposes to client code, and a third argument
+//    to `loadEnv` widens what the config loads (`''` loads everything). Both
+//    must stay at the default `VITE_`.
+if (existsSync(configPath)) {
+  // Comments are blanked first so prose that mentions `envPrefix` or `loadEnv(` is not parsed.
+  const source = readFileSync(configPath, 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+    .replace(/(^|\s)\/\/[^\n]*/g, (m, lead) => lead + ' '.repeat(m.length - lead.length));
+  /** Text of the balanced (...) / [...] / {...} group opening at `open`. */
+  const balanced = (open) => {
+    let depth = 0;
+    let quote = null;
+    for (let i = open; i < source.length; i += 1) {
+      const ch = source[i];
+      if (quote) {
+        if (ch === '\\') i += 1;
+        else if (ch === quote) quote = null;
+      } else if (ch === '"' || ch === "'" || ch === '`') quote = ch;
+      else if ('([{'.includes(ch)) depth += 1;
+      else if (')]}'.includes(ch)) {
+        depth -= 1;
+        if (depth === 0) return source.slice(open + 1, i);
+      }
+    }
+    return source.slice(open + 1);
+  };
+  /** Number of top-level, comma-separated arguments in `text`. */
+  const countArgs = (text) => {
+    let depth = 0;
+    let quote = null;
+    let count = text.trim() === '' ? 0 : 1;
+    for (let i = 0; i < text.length; i += 1) {
+      const ch = text[i];
+      if (quote) {
+        if (ch === '\\') i += 1;
+        else if (ch === quote) quote = null;
+      } else if (ch === '"' || ch === "'" || ch === '`') quote = ch;
+      else if ('([{'.includes(ch)) depth += 1;
+      else if (')]}'.includes(ch)) depth -= 1;
+      else if (ch === ',' && depth === 0 && text.slice(i + 1).trim() !== '') count += 1;
+    }
+    return count;
+  };
+
+  for (const match of source.matchAll(/\benvPrefix\b(?!\s*[.[])\s*(:\s*)?/g)) {
+    const rest = source.slice(match.index + match[0].length);
+    let value = null;
+    if (match[1]) {
+      if (/^[[]/.test(rest)) value = balanced(match.index + match[0].length);
+      else value = /^(['"`])[^'"`]*\1/.exec(rest)?.[0] ?? null;
+    }
+    const literals = value === null ? null : [...value.matchAll(/(['"`])([^'"`]*)\1/g)].map((m) => m[2]);
+    const onlyLiterals = value !== null && value.replace(/(['"`])[^'"`]*\1|[\s,[\]]/g, '') === '';
+    if (!onlyLiterals || literals.length === 0 || literals.some((l) => l !== 'VITE_')) {
+      problems.push("vite.config.ts sets envPrefix to something other than 'VITE_'; any other prefix can expose server secrets to client code.");
+    }
+  }
+
+  for (const match of source.matchAll(/\bloadEnv\s*\(/g)) {
+    const args = balanced(match.index + match[0].length - 1);
+    if (countArgs(args) > 2) {
+      problems.push("vite.config.ts calls loadEnv with a third (prefix) argument; keep the default 'VITE_' prefix.");
+    }
+  }
+}
+
 if (problems.length > 0) {
   console.error('Env hygiene check failed:');
   for (const problem of problems) console.error(`  - ${problem}`);

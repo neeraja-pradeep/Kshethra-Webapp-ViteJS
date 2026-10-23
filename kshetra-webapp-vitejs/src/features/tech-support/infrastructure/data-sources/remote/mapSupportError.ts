@@ -127,7 +127,10 @@ export function mapSupportError(error: unknown): WebhookFailure {
 
   const { status, data, headers } = error.response
   const code = readErrorCode(data)
-  const kind = (code ? KNOWN_CODES[code] : undefined) ?? kindFromStatus(status, data)
+  // A 404 with no relay error code means the route is not there: the backend
+  // that serves `/api/tech-support/*` is not deployed yet.
+  const kind =
+    (code ? KNOWN_CODES[code] : undefined) ?? (status === 404 && !code ? 'not_configured' : kindFromStatus(status, data))
   const retryAfterSeconds = readRetryAfter(headers)
 
   return { kind, message: messageFor(kind, retryAfterSeconds), status, retryAfterSeconds }

@@ -299,8 +299,9 @@ key ends up revoked.
    `TECH_SUPPORT_MAX_ATTACHMENT_BYTES` if you need it) to the backend `.env` that
    `docker-compose.yml` loads (`env_file: ../.env`).
 3. **Deploy the backend** (branch `security/tech-support-relay`). The app has no
-   models, so there are no migrations. Restart `temple-backend` so it picks up the
-   new env, then check that `python manage.py rbac_audit --fail-on-gaps` is clean.
+   models, so there are no migrations. Run `docker compose up -d temple-backend` so
+   the container is recreated and re-reads `env_file` (a plain `restart` keeps the
+   old environment), then check that `python manage.py rbac_audit --fail-on-gaps` is clean.
 4. **Smoke test the relay** as a signed-in staff user (it needs the session cookie
    and the CSRF header):
    - `POST /api/tech-support/attachments/` with a small PNG should return 202 and a
@@ -320,3 +321,6 @@ key ends up revoked.
 
 Rollback: redeploy the previous frontend and re-enable the old key. The backend
 endpoints are additive and can stay in place.
+Rolling back re-enables the leaked key path: the old frontend build needs
+`CLOZR_ISSUE_KEY` back in its build environment, and the old key must be
+un-revoked in Clozr. Prefer rolling forward.
