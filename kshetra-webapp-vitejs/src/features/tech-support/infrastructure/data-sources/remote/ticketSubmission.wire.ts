@@ -1,21 +1,20 @@
 import { z } from 'zod'
 
-import { CLOZR_PRIORITY } from '@/features/tech-support/domain/entities/ticket-submission'
+import type { TicketPriority } from '@/features/tech-support/domain/entities/support-ticket'
 import type { TicketSubmission, TicketSubmissionResult } from '@/features/tech-support/domain/entities/ticket-submission'
 
 const SUBJECT_MAX = 280
-const CUSTOMER_EMAIL_MAX = 254
-const CUSTOMER_PHONE_MAX = 50
-/** §2 redeems at most 10 tokens per ticket. */
+const PAGE_MAX = 500
+/** The relay (and Clozr behind it) redeems at most 10 tokens per ticket. */
 export const MAX_ATTACHMENT_TOKENS = 10
 
 /**
- * The 202 body, per §2 of `docs/api/ticketing-webhook.md`:
- * `{ status, request_id, issue_id, attachments_attached }`.
+ * The 202 body from `POST /api/tech-support/issues/`:
+ * `{ issue_id, request_id, attachments_attached }`.
  *
- * `attachments_attached` is optional because it is only meaningful when
- * tokens were sent; treat a missing value as zero rather than a parse error,
- * since a ticket was still created either way.
+ * `request_id` and `attachments_attached` are read leniently: a ticket was
+ * created either way, so a missing value is treated as empty / zero rather
+ * than a parse error.
  */
 export const ticketSubmissionResponseSchema = z.object({
   issue_id: z.union([z.string(), z.number()]).transform(String),
@@ -33,34 +32,46 @@ export function toTicketSubmissionResult(dto: TicketSubmissionResponseDto): Tick
   }
 }
 
+/** Characters the relay accepts in `page`: RFC 3986 path, query and fragment characters. */
+const PAGE_UNSAFE_CHAR = /[^A-Za-z0-9\-._~%!$&'()*+,;=:@/?#[\]]/gu
+
 /**
- * Build the §2 request body.
- *
- * Length caps are applied here as well as in the form: a caller that skips
- * the form (a retry path, a script) should not be able to draw an
- * `invalid_payload` from a field this file could have trimmed. Empty optional
- * fields are omitted entirely rather than sent blank — the server treats a
- * blank string as a value, and an empty `customer_email` would be a failed
- * lookup rather than no lookup.
+ * `location.pathname` as the relay wants it: starting with `/` and with
+ * anything outside the URL-path character set percent-encoded. A route is
+ * normally already URL-safe; this covers a decoded segment (a space, a
+ * non-Latin name) so it cannot turn a whole report into a 400.
  */
-export function toWireBody(input: TicketSubmission): Record<string, unknown> {
-  const body: Record<string, unknown> = {
+function toPagePath(raw: string): string {
+  const path = raw.startsWith('/') ? raw : `/${raw}`
+  return path.replace(PAGE_UNSAFE_CHAR, (char) => encodeURIComponent(char)).slice(0, PAGE_MAX)
+}
+
+/** Exactly the fields the relay reads (`docs/api/tech-support.md`). Nothing else is sent. */
+export interface TicketWireBody {
+  subject: string
+  priority: TicketPriority
+  description?: string
+  page?: string
+  attachment_tokens?: string[]
+}
+
+/**
+ * Build the request body.
+ *
+ * Length caps are applied here as well as in the form, so a caller that skips
+ * the form cannot draw a 400 from a field this file could have trimmed. Empty
+ * optional fields are left out rather than sent blank.
+ */
+export function toWireBody(input: TicketSubmission): TicketWireBody {
+  const body: TicketWireBody = {
     subject: input.subject.trim().slice(0, SUBJECT_MAX),
+    priority: input.priority,
   }
 
-  if (input.description?.trim()) body.description = input.description.trim()
-  if (input.priority) body.priority = CLOZR_PRIORITY[input.priority]
-  if (input.reportedFor) body.reported_for = input.reportedFor
-  if (input.customerEmail?.trim()) {
-    body.customer_email = input.customerEmail.trim().slice(0, CUSTOMER_EMAIL_MAX)
-  }
-  if (input.customerPhone?.trim()) {
-    body.customer_phone = input.customerPhone.trim().slice(0, CUSTOMER_PHONE_MAX)
-  }
-  if (input.message?.trim()) body.message = input.message.trim()
-  if (input.customFields && Object.keys(input.customFields).length > 0) {
-    body.custom_fields = input.customFields
-  }
+  const description = input.description?.trim()
+  if (description) body.description = description
+  const page = input.page?.trim()
+  if (page) body.page = toPagePath(page)
   if (input.attachmentTokens && input.attachmentTokens.length > 0) {
     body.attachment_tokens = input.attachmentTokens.slice(0, MAX_ATTACHMENT_TOKENS)
   }

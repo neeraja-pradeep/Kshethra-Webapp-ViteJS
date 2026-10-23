@@ -1,14 +1,20 @@
 import axios from 'axios'
 import { z } from 'zod'
 
-import { clozrAttachmentPath } from '@/core/config/endpoints'
-import { env } from '@/core/config/env'
+import { MULTIPART_REQUEST } from '@/core/api/multipart'
+import { TECH_SUPPORT_ENDPOINTS } from '@/core/config/endpoints'
 
 import type { UploadedAttachment } from '@/features/tech-support/domain/entities/attachment-upload'
-import { AttachmentsUnavailableError, WebhookNotConfiguredError } from '@/features/tech-support/domain/entities/webhook-failure'
-import { clozrWebhookClient } from '@/features/tech-support/infrastructure/data-sources/remote/clozrWebhookClient'
+import { AttachmentsUnavailableError } from '@/features/tech-support/domain/entities/webhook-failure'
+import { postWithRetry } from '@/features/tech-support/infrastructure/data-sources/remote/techSupport.api'
 
-/** The 202 body from §3. */
+/**
+ * The relay waits up to 45 s for Clozr to take a file, so the shared client's
+ * 20 s default would abandon uploads the server is still finishing.
+ */
+const UPLOAD_TIMEOUT_MS = 60_000
+
+/** The 202 body from `POST /api/tech-support/attachments/`. */
 const uploadResponseSchema = z.object({
   attachment_token: z.string(),
   expires_in: z.number(),
@@ -18,46 +24,37 @@ const uploadResponseSchema = z.object({
 })
 
 /**
- * Upload one file and get back a redeemable token (§3).
+ * Upload one file through the relay and get back a redeemable token.
  *
- * Browser mode only: the HMAC variant needs `X-Timestamp`, `X-Upload-Nonce`
- * and a signature over request metadata, and signing requires the key's
- * secret — which must never reach a browser bundle. A key with
- * `require_hmac: true` therefore cannot be driven from this app at all, and
- * its uploads will fail `401 invalid_signature` rather than silently
- * half-working.
+ * Exactly one multipart part named `file`; the relay rejects zero or more
+ * than one. `MULTIPART_REQUEST` clears the shared client's JSON content type
+ * so the browser writes `multipart/form-data` with its boundary — see
+ * `core/api/multipart.ts` for why neither `undefined` nor a literal string
+ * works. The server decides the type from the file's bytes and sanitises the
+ * name; both come back in the response.
  */
 export async function uploadAttachment(file: File, signal?: AbortSignal): Promise<UploadedAttachment> {
-  if (!env.clozrIssueKey) {
-    throw new WebhookNotConfiguredError('CLOZR_ISSUE_KEY is not set — attachments cannot be uploaded.')
-  }
-
   const form = new FormData()
-  // Exactly one part named `file`; §3 rejects zero or more than one.
   form.append('file', file)
 
   let response
   try {
-    response = await clozrWebhookClient.post(clozrAttachmentPath(env.clozrIssueKey), form, {
-      /*
-       * Undefined, not a string: the shared client sets `application/json`,
-       * and multipart needs a boundary parameter only the browser can
-       * generate. Setting it by hand produces a body the server cannot parse;
-       * axios fills it in correctly once the default is cleared.
-       */
-      headers: { 'Content-Type': undefined },
+    response = await postWithRetry(TECH_SUPPORT_ENDPOINTS.attachments, form, {
+      ...MULTIPART_REQUEST,
+      timeout: UPLOAD_TIMEOUT_MS,
       signal,
     })
   } catch (error) {
     /*
-     * §3 answers `404 key_not_found` both for a genuinely unknown key and for
-     * a valid key with `attachments_enabled: false` — deliberately identical,
-     * so the feature is not advertised to a prober. Since the ticket webhook
-     * shares this key and demonstrably works, a 404 here means attachments
-     * are switched off, not that reporting is misconfigured. Saying the
-     * latter would send someone debugging a system that is fine.
+     * `409 attachments_unavailable`: Clozr has attachments switched off for
+     * this deployment's key. Reporting itself still works, so this is "send
+     * the ticket without files", not a misconfiguration.
      */
-    if (axios.isAxiosError(error) && error.response?.status === 404) {
+    if (
+      axios.isAxiosError(error) &&
+      error.response?.status === 409 &&
+      (error.response.data as { error_code?: unknown } | undefined)?.error_code === 'attachments_unavailable'
+    ) {
       throw new AttachmentsUnavailableError('Attachments are not enabled for this workspace.')
     }
     throw error

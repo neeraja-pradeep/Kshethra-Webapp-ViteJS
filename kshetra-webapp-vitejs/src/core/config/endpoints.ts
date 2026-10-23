@@ -232,27 +232,17 @@ export const STORE_ENDPOINTS = {
 } as const
 
 /**
- * The Clozr inbound webhook that turns a Tech support report into a ticket.
+ * Tech support: the backend relay that files a report as a Clozr ticket.
  *
- * Not relative to the app's own `http` client's baseURL like everything above
- * — this is a different service, reached directly from the browser, so the
- * host (`env.clozrWebhookBaseUrl`) is applied at the call site.
- *
- * The key is `CLOZR_ISSUE_KEY` from the environment rather than a literal:
- * dev, staging and production each post to their own inbox, and a hardcoded
- * key silently files every environment's reports into one of them.
+ * The browser never talks to Clozr directly any more — the webhook key and its
+ * HMAC secret live on the server, which signs and forwards each request. Both
+ * routes are session-authenticated `POST`s through the shared `http` client,
+ * so they carry the session cookie and `X-CSRFToken` like any other write.
+ * Contract: `docs/api/tech-support.md`.
  */
-export function clozrWebhookPath(issueKey: string): string {
-  return `/webhooks/issues/${issueKey}/`
-}
-
-/**
- * The attachment upload route for the same key (§3).
- *
- * Only reachable when the key has `attachments_enabled: true`; otherwise it
- * answers `404 key_not_found`, deliberately indistinguishable from a
- * nonexistent route so the feature is not advertised to a prober.
- */
-export function clozrAttachmentPath(issueKey: string): string {
-  return `/webhooks/issues/${issueKey}/attachments/`
-}
+export const TECH_SUPPORT_ENDPOINTS = {
+  /** `POST` JSON — files the ticket, redeeming tokens from `attachments`. */
+  issues: '/tech-support/issues/',
+  /** `POST` multipart, one `file` part per request — returns a short-lived token. */
+  attachments: '/tech-support/attachments/',
+} as const

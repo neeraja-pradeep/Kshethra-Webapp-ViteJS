@@ -10,7 +10,7 @@ export const PRIORITY_OPTIONS: ReadonlyArray<{ value: TicketPriority; label: str
 ]
 
 /**
- * Largest file we will attach, matching §3's 10 MB system ceiling.
+ * Largest file we will attach, matching the relay's 10 MB per-file cap.
  *
  * A key may be configured with a *lower* cap that the client cannot read, so
  * a file passing this can still come back `413` — that is reported as an
@@ -18,7 +18,7 @@ export const PRIORITY_OPTIONS: ReadonlyArray<{ value: TicketPriority; label: str
  */
 export const MAX_ATTACHMENT_BYTES = MAX_UPLOAD_BYTES
 /**
- * Five, not §2's ceiling of ten: beyond a handful of screenshots a report is
+ * Five, not the relay's ceiling of ten: beyond a handful of screenshots a report is
  * a conversation, not a ticket. Kept under the server's limit on purpose, so
  * this is a product choice rather than a race against it.
  */

@@ -46,7 +46,7 @@ export function AttachmentField({ attachments, onAdd, onRemove, error, disabled 
     e.preventDefault()
     setDragging(false)
     if (locked) return
-    // Pass everything through; the parent applies §6's type rules and reports
+    // Pass everything through; the parent applies the relay's type rules and reports
     // a rejection by name. Filtering here would drop a file silently.
     const files = Array.from(e.dataTransfer.files)
     if (files.length > 0) onAdd(files)

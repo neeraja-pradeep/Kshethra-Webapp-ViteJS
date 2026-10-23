@@ -37,12 +37,12 @@ const TOAST_MS = 3200
  * a bug are the ones with the fewest permissions, and gating the complaint box
  * behind a permission would silence exactly them.
  *
- * The report itself goes straight to the Clozr inbound webhook — a different
- * service from this app's own API, reached directly from the browser (see
- * `infrastructure/data-sources/remote/clozrWebhookClient.ts`). Screenshots stay
- * local-preview-only: the webhook takes JSON, and there is nowhere yet to turn
- * an attached image into a URL, so they inform the description rather than
- * being sent.
+ * The report goes to our own backend's tech-support relay
+ * (`/api/tech-support/*`, see `infrastructure/data-sources/remote/techSupport.api.ts`),
+ * which files it as a Clozr ticket. Staged files are uploaded through the
+ * relay first, one at a time, and the ticket redeems their tokens. Who is
+ * reporting is added by the server from the session; this screen sends only
+ * what the reporter chose, plus the page they were on.
  */
 export function TechSupportScreen() {
   const { data: me } = useMyPermissionsQuery()
@@ -100,7 +100,7 @@ export function TechSupportScreen() {
         rejected.push(`Only ${MAX_ATTACHMENTS} files can be attached.`)
         break
       }
-      // §6's list, not `image/*`: the server sniffs content and rejects
+      // The relay's list, not `image/*`: the server sniffs content and rejects
       // anything outside it — SVG always — so offering a wider set here would
       // only spend an upload to be told no.
       if (!isPlausiblyAccepted(file)) {
@@ -148,7 +148,8 @@ export function TechSupportScreen() {
    * A file that fails to upload never blocks the report: the ticket is the
    * point, the screenshot is supporting evidence, and losing the whole report
    * because an image was rejected would be the worse outcome. Failures are
-   * named in `message` so support knows what was meant to be there.
+   * named in `description` (the relay has no field for them) so support knows
+   * what was meant to be there.
    */
   async function handleSubmit() {
     const found = validateTicketDraft(draft)
@@ -159,23 +160,35 @@ export function TechSupportScreen() {
     setErrors({})
 
     const staged = draft.attachments
-    let tokens: string[] = []
-    let failed: TicketAttachment[] = []
+    const tokens: string[] = []
+    const failed: TicketAttachment[] = []
 
     if (staged.length > 0) {
       setUploadingFiles(true)
       for (const attachment of staged) patchAttachment(attachment.id, { status: 'uploading' })
 
-      // Sequential, not parallel: §3 rate-limits uploads per IP (10/min), and
-      // firing five at once is the quickest way to draw a 429 on a report
-      // that would otherwise have gone through.
+      // Sequential, not parallel: the relay throttles uploads per user
+      // (20/min) and Clozr limits them per source IP — now the server's, so
+      // shared by the whole deployment. Firing five at once is the quickest
+      // way to draw a 429 on a report that would otherwise have gone through.
+      let attachmentsOff: string | null = null
       for (const attachment of staged) {
+        // `409 attachments_unavailable` is a property of the deployment, not
+        // of the file: once seen, the rest would fail the same way, so they
+        // are not tried and the ticket goes without them.
+        if (attachmentsOff) {
+          failed.push(attachment)
+          patchAttachment(attachment.id, { status: 'failed', error: attachmentsOff })
+          continue
+        }
         try {
           const uploaded = await uploadAttachment.mutateAsync(attachment.file)
           tokens.push(uploaded.token)
           patchAttachment(attachment.id, { status: 'uploaded', token: uploaded.token, expiresAt: uploaded.expiresAt })
         } catch (error) {
-          const message = error instanceof WebhookFailureError ? error.failure.message : 'Upload failed.'
+          const failure = error instanceof WebhookFailureError ? error.failure : null
+          const message = failure?.message ?? 'Upload failed.'
+          if (failure?.kind === 'attachments_unavailable') attachmentsOff = message
           failed.push(attachment)
           patchAttachment(attachment.id, { status: 'failed', error: message })
         }
@@ -183,30 +196,31 @@ export function TechSupportScreen() {
       setUploadingFiles(false)
     }
 
+    // A file that failed to upload is named in the description, since the
+    // relay has no field for it — support then knows it was meant to be there.
+    const description = [
+      draft.description.trim(),
+      failed.length > 0 ? `Could not upload: ${failed.map((a) => a.name).join(', ')}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n\n')
+
     submitMutation.mutate(
       {
         subject: draft.subject.trim(),
-        description: draft.description.trim() || undefined,
+        description: description || undefined,
         priority: draft.priority,
-        reportedFor: 'self',
+        // The one piece of context the server cannot know. The reporter's
+        // identity ("Reported by …") is added server-side from the session.
+        page: location.pathname,
         attachmentTokens: tokens.length > 0 ? tokens : undefined,
-        // Context for triage, folded into `form.message` rather than left for
-        // support to ask for — the account and page are the two things a
-        // reporter forgets to mention. A file that failed to upload is named
-        // here so support knows it was meant to be there.
-        message: [
-          `Reported by: ${account}`,
-          `Page: ${location.pathname}`,
-          failed.length > 0 ? `Could not upload: ${failed.map((a) => a.name).join(', ')}` : null,
-        ]
-          .filter(Boolean)
-          .join('\n'),
       },
       {
         onSuccess: (result) => {
-          // §2 returns a count, never which tokens landed. When it is short,
-          // say so rather than claiming every screenshot made it.
-          const expected = tokens.length
+          // The relay returns a count, never which tokens landed. Measured
+          // against every staged file, so one that failed to upload or whose
+          // token expired shows as "N of M" rather than "Report sent".
+          const expected = staged.length
           const attached = result.attachmentsAttached
           setSentNote(
             expected > 0 && attached < expected
