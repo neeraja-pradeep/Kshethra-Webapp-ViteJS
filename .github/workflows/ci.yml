@@ -1,0 +1,44 @@
+# Minimal QA gate for the Kshethra back office: lint, the env secret-hygiene
+# check, and a production build. Make "QA gate" a required status check on
+# develop/main so a pull request that fails it cannot be merged.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: kshetra-webapp-vitejs
+
+jobs:
+  qa:
+    name: QA gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: kshetra-webapp-vitejs/package-lock.json
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Env hygiene
+        run: npm run check:env
+      - name: Build
+        # No env needed: VITE_API_BASE_URL empty means same-origin /api. The
+        # build must never need a Clozr key — tech support goes through the
+        # backend relay.
+        run: npm run build
