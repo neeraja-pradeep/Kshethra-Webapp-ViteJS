@@ -1,5 +1,6 @@
 /**
- * The attachment upload webhook (§3 of `docs/api/ticketing-webhook.md`).
+ * Attachment uploads through the tech-support relay
+ * (`POST /api/tech-support/attachments/`, see `docs/api/tech-support.md`).
  *
  * Two steps, not one: upload a file here to get an opaque token, then pass
  * that token in the ticket's `attachment_tokens` when it is submitted. A token
@@ -31,7 +32,7 @@ export function isExpired(attachment: UploadedAttachment, now: number = Date.now
 }
 
 /**
- * The types §6 accepts, by sniffed content — SVG is deliberately absent and is
+ * The types the relay accepts, by sniffed content — SVG is deliberately absent and is
  * always rejected server-side as a stored-XSS defence, so it must not be
  * offered here either.
  */
@@ -44,17 +45,21 @@ export const ACCEPTED_CONTENT_TYPES: readonly string[] = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 ]
 
-/** The matching `accept` attribute for a file input. Extensions mirror §6's table. */
+/** The matching `accept` attribute for a file input. Extensions mirror the relay's table. */
 export const ACCEPT_ATTRIBUTE = '.png,.jpg,.jpeg,.gif,.webp,.pdf,.xlsx'
 
 /**
- * System ceiling from §3. A key may set a *lower* cap, which the client cannot
- * read, so an upload can still come back `413` — that is handled as a failure
- * rather than pre-empted with a guess.
+ * The relay's cap, `TECH_SUPPORT_MAX_ATTACHMENT_BYTES` (10 MB by default),
+ * less 1 KB. The cap also applies to the multipart body the relay forwards to
+ * Clozr, which adds a couple of hundred bytes plus the filename, so a file
+ * right at 10 MB can still be refused; the backend recommends this margin.
+ * A deployment may set a *lower* cap, which the client cannot read, so an
+ * upload can still come back `413` — that is handled as a failure rather than
+ * pre-empted with a guess.
  */
-export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024 - 1024
 
-/** §2 redeems at most 10 tokens per ticket; a key may allow fewer. */
+/** The relay redeems at most 10 tokens per ticket. */
 export const MAX_UPLOAD_COUNT = 10
 
 /**

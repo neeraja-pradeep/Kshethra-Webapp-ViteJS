@@ -23,10 +23,10 @@ export interface TicketAttachment {
   size: number
   /** Object URL for the preview. */
   url: string
-  /** The picked file, uploaded to the attachment webhook as soon as it is added. */
+  /** The picked file, uploaded through the relay when the report is sent. */
   file: File
   /**
-   * Where this file is in the two-step flow (§3 upload, then §2 redeem).
+   * Where this file is in the two-step flow (upload for a token, then the ticket redeems it).
    *
    * Files are only uploaded when the report is actually sent. Uploading on
    * pick would push a file to the server that the reporter may still remove,
@@ -36,7 +36,7 @@ export interface TicketAttachment {
    * however long the reporter spent writing.
    */
   status: 'staged' | 'uploading' | 'uploaded' | 'failed'
-  /** Set once uploaded — what §2 redeems. Absent while uploading or after a failure. */
+  /** Set once uploaded — what the ticket redeems. Absent while uploading or after a failure. */
   token?: string
   /** When the token stops being redeemable, so a stale one is not sent. */
   expiresAt?: number

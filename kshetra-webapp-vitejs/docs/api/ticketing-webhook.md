@@ -1,5 +1,9 @@
 # Ticketing Webhook API — Frontend Contract
 
+> **Upstream Clozr reference only.** The browser must never call these endpoints
+> (the webhook key and HMAC secret cannot be public). Report issues through
+> `/api/tech-support/*` on the backend relay instead; see [tech-support.md](tech-support.md).
+
 Backend contract for the **ticketing (helpdesk) webhook surfaces**: the public,
 anonymous embeddable-widget endpoints, and the authenticated APIs that manage
 them and proxy into them. The domain model is called **Issue**, "ticket" is
